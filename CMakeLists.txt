@@ -25,6 +25,9 @@ endif()
 add_executable(${PROJECT_NAME} main.c
         wifi/wifi_setup.c
         wifi/http_client.c
+        navigation/nav.c
+        gpio/gpio_driver.c
+        screen/epd_driver.c
 )
 
 target_link_libraries(${PROJECT_NAME}

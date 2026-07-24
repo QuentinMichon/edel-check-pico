@@ -4,6 +4,18 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+
+// =================================================================
+// cible utilisee pour la demo de requete sortante (partie 1)
+// =================================================================
+
+#define HTTP_TEST_HOST "example.com"
+#define HTTP_TEST_PORT 443 // 0 => port par defaut (80 en http, 443 en https)
+#define HTTP_TEST_PATH "/"
+#define HTTP_TEST_USE_TLS true
+// =================================================================
+
+
 // effectue une requete GET vers host:port/path (en http simple, ou en https si use_tls est vrai)
 // et affiche la reponse brute (entetes + corps, tels que recus) sur la sortie standard. bloque
 // jusqu'a la fin de la reponse ou expiration de timeout_ms. port = 0 => port par defaut (80/443).
