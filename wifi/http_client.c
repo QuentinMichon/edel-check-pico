@@ -37,6 +37,12 @@ typedef struct {
     volatile bool complete;  // passe a true par http_client_result() quand tout est termine
     int result;              // 0 = ok, != 0 = erreur (voir http_client_result)
     struct altcp_tls_config *tls_config;
+
+    char *out_body;           // buffer appelant recevant le corps de la reponse (NULL = pas de capture)
+    size_t out_body_len;      // capacite de out_body (NUL final inclus)
+    size_t out_body_used;     // nb d'octets de corps deja copies dans out_body
+    uint8_t header_match;     // etat de l'automate de detection de "\r\n\r\n" (0..4)
+    bool out_body_truncated;  // vrai si le corps recu depassait out_body_len
 } http_client_state_t;
 
 // ferme proprement la connexion et detache nos callbacks (sinon lwIP pourrait rappeler une
@@ -66,10 +72,50 @@ static err_t http_client_result(http_client_state_t *state, int result) {
     return http_client_close(state);
 }
 
-// appelee par lwIP a chaque fois qu'un morceau de reponse arrive. contrairement a la version
-// "httpc", on ne separe pas entetes/corps ici : on recoit le flux d'octets brut, tel qu'il arrive
-// sur le fil, et on l'affiche tel quel (c'est a nous de reperer "\r\n\r\n" si on veut distinguer
-// les entetes du corps).
+// avance l'automate de detection de "\r\n\r\n" au fil des octets recus (le flux peut arriver
+// decoupe n'importe ou, y compris au milieu du separateur, d'ou cet etat conserve dans state
+// entre deux appels). une fois les entetes termines, copie les octets suivants (le corps de la
+// reponse) dans state->out_body, borne a out_body_len - 1, et NUL-termine a chaque appel.
+//
+// note : "\r\n\r\n" n'a pas de prefixe qui soit aussi un suffixe plus court (hormis lui-meme),
+// donc un simple redemarrage sur SEP[0] en cas d'echec suffit ici (pas besoin d'un vrai KMP).
+static void http_client_capture_body(http_client_state_t *state, const uint8_t *data, uint16_t len) {
+    static const char SEP[4] = {'\r', '\n', '\r', '\n'};
+    uint16_t i = 0;
+
+    while (state->header_match < 4 && i < len) {
+        if (data[i] == (uint8_t) SEP[state->header_match]) {
+            state->header_match++;
+        } else {
+            state->header_match = (data[i] == (uint8_t) SEP[0]) ? 1 : 0;
+        }
+        i++;
+    }
+
+    if (state->header_match < 4 || i >= len) {
+        return; // toujours dans les entetes, ou plus rien a copier dans ce morceau
+    }
+
+    size_t remaining_cap = (state->out_body_len > state->out_body_used + 1)
+                                ? state->out_body_len - state->out_body_used - 1 : 0;
+    size_t available = (size_t) (len - i);
+    size_t to_copy = (available > remaining_cap) ? remaining_cap : available;
+    if (to_copy < available) {
+        state->out_body_truncated = true;
+    }
+    if (to_copy > 0) {
+        memcpy(state->out_body + state->out_body_used, data + i, to_copy);
+        state->out_body_used += to_copy;
+    }
+    if (state->out_body_len > 0) {
+        state->out_body[state->out_body_used] = '\0';
+    }
+}
+
+// appelee par lwIP a chaque fois qu'un morceau de reponse arrive. on affiche le flux brut tel
+// qu'il arrive sur le fil (comportement inchange), et, si l'appelant a fourni un buffer de
+// capture (state->out_body), on en extrait en parallele le corps de la reponse (sans les entetes)
+// via http_client_capture_body.
 static err_t http_client_recv(void *arg, struct altcp_pcb *conn, struct pbuf *p, err_t err) {
     http_client_state_t *state = (http_client_state_t *) arg;
     (void) err;
@@ -81,6 +127,9 @@ static err_t http_client_recv(void *arg, struct altcp_pcb *conn, struct pbuf *p,
     cyw43_arch_lwip_check();
     for (struct pbuf *q = p; q != NULL; q = q->next) {
         fwrite(q->payload, 1, q->len, stdout);
+        if (state->out_body) {
+            http_client_capture_body(state, (const uint8_t *) q->payload, q->len);
+        }
     }
     // dit a lwIP "j'ai fini de lire ces octets" : necessaire pour que le controle de flux TCP
     // (la fenetre de reception) reste ouvert et que le serveur puisse continuer a envoyer.
@@ -175,7 +224,12 @@ static void http_client_dns_found(const char *name, const ip_addr_t *ipaddr, voi
 // alloue et initialise l'etat commun a toute requete (GET ou POST) : creation de la config tls
 // si necessaire, et port par defaut (443/80) si port == 0. *port est mis a jour avec le port
 // effectivement retenu. NULL en cas d'echec (deja nettoye).
-static http_client_state_t *http_client_alloc(bool use_tls, uint16_t *port) {
+//
+// out_body/out_body_len : buffer optionnel (NULL = pas de capture) qui recevra le corps de la
+// reponse (voir http_client_capture_body). out_body est immediatement mis a "" pour garantir une
+// chaine valide meme si la requete echoue avant de recevoir la moindre donnee.
+static http_client_state_t *http_client_alloc(bool use_tls, uint16_t *port,
+                                               char *out_body, size_t out_body_len) {
     http_client_state_t *state = calloc(1, sizeof(http_client_state_t));
     if (!state) {
         printf("[http] allocation echouee\n");
@@ -196,6 +250,13 @@ static http_client_state_t *http_client_alloc(bool use_tls, uint16_t *port) {
         *port = 80;
     }
     state->port = *port;
+
+    state->out_body = out_body;
+    state->out_body_len = out_body_len;
+    if (out_body && out_body_len > 0) {
+        out_body[0] = '\0';
+    }
+
     return state;
 }
 
@@ -278,6 +339,10 @@ static bool http_client_run(http_client_state_t *state, const char *host, bool u
         altcp_tls_free_config(state->tls_config);
     }
 
+    if (state->out_body && state->out_body_truncated) {
+        printf("\n[http] attention: payload tronque (buffer de sortie trop petit)\n");
+    }
+
     bool ok = (state->result == 0);
     printf("\n[http] --- fin (resultat = %d) ---\n", state->result);
     free(state);
@@ -292,8 +357,9 @@ static bool http_client_run(http_client_state_t *state, const char *host, bool u
  */
 
 bool http_get(const char *host, uint16_t port, const char *path, bool use_tls,
-              const char *extra_headers, uint32_t timeout_ms) {
-    http_client_state_t *state = http_client_alloc(use_tls, &port);
+              const char *extra_headers, uint32_t timeout_ms,
+              char *out_body, size_t out_body_len) {
+    http_client_state_t *state = http_client_alloc(use_tls, &port, out_body, out_body_len);
     if (!state) {
         return false;
     }
@@ -329,8 +395,9 @@ bool http_get(const char *host, uint16_t port, const char *path, bool use_tls,
 
 bool http_post_oauth2(const char *host, uint16_t port, const char *path, bool use_tls,
                        const char *content_type, const char *body,
-                       const char *extra_headers, uint32_t timeout_ms) {
-    http_client_state_t *state = http_client_alloc(use_tls, &port);
+                       const char *extra_headers, uint32_t timeout_ms,
+                       char *out_body, size_t out_body_len) {
+    http_client_state_t *state = http_client_alloc(use_tls, &port, out_body, out_body_len);
     if (!state) {
         return false;
     }

@@ -39,8 +39,16 @@
 // extra_headers permet d'ajouter nos propres lignes d'entete (ex: "Accept: application/json\r\n"),
 // chaque ligne devant se terminer par \r\n. peut valoir NULL si aucun entete supplementaire n'est
 // necessaire.
+//
+// out_body/out_body_len : buffer optionnel qui recoit le corps de la reponse (sans les entetes
+// HTTP), NUL-termine. peut valoir NULL/0 pour ne pas capturer (seul l'affichage sur stdout a
+// alors lieu, comme avant). si out_body_len est insuffisant, le corps est tronque et un warning
+// est affiche sur stdout - la requete elle-meme n'est pas consideree en echec pour autant.
+// limitation : suppose un corps delimite par Content-Length ou par la fermeture de connexion (pas
+// de support de Transfer-Encoding: chunked).
 bool http_get(const char *host, uint16_t port, const char *path, bool use_tls,
-              const char *extra_headers, uint32_t timeout_ms);
+              const char *extra_headers, uint32_t timeout_ms,
+              char *out_body, size_t out_body_len);
 
 // effectue une requete POST vers host:port/path et affiche la reponse brute sur la sortie
 // standard, meme convention que http_get (port = 0 => port par defaut, extra_headers optionnel,
@@ -50,12 +58,16 @@ bool http_get(const char *host, uint16_t port, const char *path, bool use_tls,
 // peut valoir NULL, auquel cas "application/x-www-form-urlencoded" est utilise par defaut (comme
 // curl -d). le "Content-Length" est calcule automatiquement a partir de body.
 //
+// out_body/out_body_len : voir http_get (meme convention - corps seul, NUL-termine, NULL/0 pour
+// ne pas capturer).
+//
 // nommee "_oauth2" car pensee pour le flux client_credentials (ex: POST vers /oauth/v2/token
 // avec un entete "Authorization: Basic ..." construit via http_client_basic_auth), mais reste
 // generique dans ses parametres.
 bool http_post_oauth2(const char *host, uint16_t port, const char *path, bool use_tls,
                        const char *content_type, const char *body,
-                       const char *extra_headers, uint32_t timeout_ms);
+                       const char *extra_headers, uint32_t timeout_ms,
+                       char *out_body, size_t out_body_len);
 
 // construit dans out (NUL-terminee) la valeur base64 de "username:password", a utiliser par
 // l'appelant pour composer un entete d'authentification HTTP Basic, ex :
