@@ -32,6 +32,7 @@ int main(int argc, char *argv[]) {
     printf("version 1.0.6\n");
     printf("   -   wifi\n");
     printf("   -   Screen\n");
+    printf("   -   POST token\n");
 
     // init GPIO
     init_gpio();

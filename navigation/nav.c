@@ -17,6 +17,7 @@ static void post_token(void) {
 
     char auth_value[256];
     char headers[320];
+    char body[2048];
 
     if (!http_client_basic_auth(OAUTH_CLIENT_ID, OAUTH_CLIENT_SECRET, auth_value, sizeof(auth_value))) {
         printf("[nav] echec de construction de l'entete Basic Auth (buffer trop petit ?)\n");
@@ -25,15 +26,21 @@ static void post_token(void) {
 
     snprintf(headers, sizeof(headers), "Authorization: Basic %s\r\n", auth_value);
 
-    http_post_oauth2(OAUTH_TOKEN_HOST,
+    bool ok = http_post_oauth2(OAUTH_TOKEN_HOST,
         OAUTH_TOKEN_PORT,
         OAUTH_TOKEN_PATH,
         OAUTH_TOKEN_USE_TLS,
         "application/x-www-form-urlencoded",
         "grant_type=client_credentials&scope=openid",
         headers,
-        10000
+        10000,
+        body,
+        sizeof(body)
     );
+
+    if (ok) {
+        printf("[nav] reponse: %s\n", body);
+    }
 }
 
 /*
@@ -58,7 +65,9 @@ void poll_usb_nav_key(void) {
                         HTTP_TEST_PATH,
                         HTTP_TEST_USE_TLS,
                         NULL,
-                        10000
+                        10000,
+                        NULL,
+                        0
                     );
 
                     break;
