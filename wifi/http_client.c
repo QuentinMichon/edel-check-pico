@@ -14,6 +14,7 @@
 #include "lwip/pbuf.h"
 #include "lwip/dns.h"
 #include "lwip/altcp_tls.h"
+#include "mbedtls/base64.h"
 #include "http_client.h"
 
 #define POLL_TIME_S 10
@@ -31,7 +32,7 @@ typedef struct {
     struct altcp_pcb *pcb;   // la "connexion" (tcp nu, ou tcp+tls selon use_tls)
     ip_addr_t remote_addr;   // ip du serveur, remplie par la resolution dns
     uint16_t port;
-    char request[384];       // notre requete HTTP construite a la main (avec nos propres entetes)
+    char request[768];       // notre requete HTTP construite a la main (avec nos propres entetes)
     bool dns_done;
     volatile bool complete;  // passe a true par http_client_result() quand tout est termine
     int result;              // 0 = ok, != 0 = erreur (voir http_client_result)
@@ -171,16 +172,14 @@ static void http_client_dns_found(const char *name, const ip_addr_t *ipaddr, voi
 
 
 
-/*
- *      --- GET --------------------
- */
-
-bool http_get(const char *host, uint16_t port, const char *path, bool use_tls,
-              const char *extra_headers, uint32_t timeout_ms) {
+// alloue et initialise l'etat commun a toute requete (GET ou POST) : creation de la config tls
+// si necessaire, et port par defaut (443/80) si port == 0. *port est mis a jour avec le port
+// effectivement retenu. NULL en cas d'echec (deja nettoye).
+static http_client_state_t *http_client_alloc(bool use_tls, uint16_t *port) {
     http_client_state_t *state = calloc(1, sizeof(http_client_state_t));
     if (!state) {
         printf("[http] allocation echouee\n");
-        return false;
+        return NULL;
     }
 
     if (use_tls) {
@@ -190,25 +189,20 @@ bool http_get(const char *host, uint16_t port, const char *path, bool use_tls,
         if (!state->tls_config) {
             printf("[http] echec de creation de la config tls\n");
             free(state);
-            return false;
+            return NULL;
         }
-        if (port == 0) port = 443;
-    } else if (port == 0) {
-        port = 80;
+        if (*port == 0) *port = 443;
+    } else if (*port == 0) {
+        *port = 80;
     }
-    state->port = port;
+    state->port = *port;
+    return state;
+}
 
-    // on construit nous-memes la requete texte : c'est ici, et uniquement ici, qu'on decide des
-    // entetes envoyes - contrairement a httpc_get_file_dns qui imposait "Accept: */*" en dur.
-    snprintf(state->request, sizeof(state->request),
-             "GET %s HTTP/1.1\r\n"
-             "Host: %s\r\n"
-             "User-Agent: pico2w-lab05\r\n"
-             "Connection: close\r\n"
-             "%s" // entetes additionnels fournis par l'appelant (deja termines par \r\n chacun)
-             "\r\n",
-             path, host, extra_headers ? extra_headers : "");
-
+// partie commune a toute requete, une fois state->request deja rempli : resolution dns,
+// connexion tcp/tls, attente bloquante de la reponse, puis nettoyage. libere state dans tous
+// les cas (succes ou echec).
+static bool http_client_run(http_client_state_t *state, const char *host, bool use_tls, uint32_t timeout_ms) {
     // 1) RESOLUTION DNS =============================================================
 
     printf("[http] resolution DNS de \"%s\"...\n", host);
@@ -256,7 +250,7 @@ bool http_get(const char *host, uint16_t port, const char *path, bool use_tls,
 
     // 2) CONNEXION TCP / TLS =============================================================
 
-    printf("[http] connexion %s a %s:%u...\n", use_tls ? "tls" : "tcp", ip4addr_ntoa(&state->remote_addr), port);
+    printf("[http] connexion %s a %s:%u...\n", use_tls ? "tls" : "tcp", ip4addr_ntoa(&state->remote_addr), state->port);
 
     if (!http_client_open(state, use_tls, host)) {
         printf("[http] echec de connexion\n");
@@ -284,9 +278,124 @@ bool http_get(const char *host, uint16_t port, const char *path, bool use_tls,
         altcp_tls_free_config(state->tls_config);
     }
 
-
     bool ok = (state->result == 0);
     printf("\n[http] --- fin (resultat = %d) ---\n", state->result);
     free(state);
     return ok;
+}
+
+
+
+
+/*
+ *      --- GET --------------------
+ */
+
+bool http_get(const char *host, uint16_t port, const char *path, bool use_tls,
+              const char *extra_headers, uint32_t timeout_ms) {
+    http_client_state_t *state = http_client_alloc(use_tls, &port);
+    if (!state) {
+        return false;
+    }
+
+    // on construit nous-memes la requete texte : c'est ici, et uniquement ici, qu'on decide des
+    // entetes envoyes - contrairement a httpc_get_file_dns qui imposait "Accept: */*" en dur.
+    int n = snprintf(state->request, sizeof(state->request),
+             "GET %s HTTP/1.1\r\n"
+             "Host: %s\r\n"
+             "User-Agent: pico2w-lab05\r\n"
+             "Connection: close\r\n"
+             "%s" // entetes additionnels fournis par l'appelant (deja termines par \r\n chacun)
+             "\r\n",
+             path, host, extra_headers ? extra_headers : "");
+    if (n < 0 || (size_t) n >= sizeof(state->request)) {
+        printf("[http] requete GET trop longue pour le buffer\n");
+        if (state->tls_config) {
+            altcp_tls_free_config(state->tls_config);
+        }
+        free(state);
+        return false;
+    }
+
+    return http_client_run(state, host, use_tls, timeout_ms);
+}
+
+
+
+
+/*
+ *      --- POST (OAuth2) --------------------
+ */
+
+bool http_post_oauth2(const char *host, uint16_t port, const char *path, bool use_tls,
+                       const char *content_type, const char *body,
+                       const char *extra_headers, uint32_t timeout_ms) {
+    http_client_state_t *state = http_client_alloc(use_tls, &port);
+    if (!state) {
+        return false;
+    }
+
+    size_t body_len = body ? strlen(body) : 0;
+
+    int n = snprintf(state->request, sizeof(state->request),
+             "POST %s HTTP/1.1\r\n"
+             "Host: %s\r\n"
+             "User-Agent: pico2w-lab05\r\n"
+             "Connection: close\r\n"
+             "Content-Type: %s\r\n"
+             "Content-Length: %zu\r\n"
+             "%s" // entetes additionnels fournis par l'appelant (deja termines par \r\n chacun)
+             "\r\n"
+             "%s",
+             path, host,
+             content_type ? content_type : "application/x-www-form-urlencoded",
+             body_len,
+             extra_headers ? extra_headers : "",
+             body ? body : "");
+    // Content-Length doit correspondre exactement au corps effectivement envoye : une requete
+    // tronquee par snprintf serait un bug silencieux (le serveur attendrait plus d'octets que
+    // ce qu'on lui a reellement envoye), d'ou ce controle explicite du retour de snprintf.
+    if (n < 0 || (size_t) n >= sizeof(state->request)) {
+        printf("[http] requete POST trop longue pour le buffer\n");
+        if (state->tls_config) {
+            altcp_tls_free_config(state->tls_config);
+        }
+        free(state);
+        return false;
+    }
+
+    return http_client_run(state, host, use_tls, timeout_ms);
+}
+
+
+
+
+/*
+ *      --- AUTH BASIC --------------------
+ */
+
+// construit la valeur base64 de "username:password" dans out (NUL-terminee), utilisable par
+// l'appelant pour composer un entete "Authorization: Basic <out>\r\n" a passer en extra_headers
+// a http_get/http_post_oauth2. retourne false si un des buffers est trop petit.
+bool http_client_basic_auth(const char *username, const char *password, char *out, size_t out_len) {
+    char credentials[128];
+    int n = snprintf(credentials, sizeof(credentials), "%s:%s",
+                      username ? username : "", password ? password : "");
+    if (n < 0 || (size_t) n >= sizeof(credentials)) {
+        return false;
+    }
+
+    if (out_len == 0) {
+        return false;
+    }
+
+    size_t olen = 0;
+    // out_len - 1 : on reserve toujours un octet pour le NUL final ajoute ci-dessous.
+    int rc = mbedtls_base64_encode((unsigned char *) out, out_len - 1, &olen,
+                                    (const unsigned char *) credentials, (size_t) n);
+    if (rc != 0) {
+        return false;
+    }
+    out[olen] = '\0';
+    return true;
 }
