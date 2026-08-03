@@ -13,6 +13,26 @@ static nav_page_t state = NAV_PAGE_START;
 
 bool running = true;
 
+static void post_token(void) {
+
+    char auth_value[128];
+    char headers[192];
+
+    http_client_basic_auth(OAUTH_CLIENT_ID, OAUTH_CLIENT_SECRET, auth_value, sizeof(auth_value));
+
+    snprintf(headers, sizeof(headers), "Authorization: Basic %s\r\n", auth_value);
+
+    http_post_oauth2(OAUTH_TOKEN_HOST,
+        OAUTH_TOKEN_PORT,
+        OAUTH_TOKEN_PATH,
+        OAUTH_TOKEN_USE_TLS,
+        "application/x-www-form-urlencoded",
+        "grant_type=client_credentials&scope=openid",
+        headers,
+        10000
+    );
+}
+
 /*
  *      GESTION DES BOUTON + MENU
  */
@@ -45,7 +65,8 @@ void poll_usb_nav_key(void) {
                     state = NAV_PAGE_SETTINGS;
                     break;
                 case '3':
-                    printf("NA: 3\n");
+                    printf("go to POST access token\n");
+                    post_token();
                     break;
                 case '4':
                     printf("NA: 4\n");
