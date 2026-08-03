@@ -60,13 +60,14 @@ bool http_post_oauth2(const char *host, uint16_t port, const char *path, bool us
 // construit dans out (NUL-terminee) la valeur base64 de "username:password", a utiliser par
 // l'appelant pour composer un entete d'authentification HTTP Basic, ex :
 //
-//   char auth_value[128];
-//   http_client_basic_auth(OAUTH_CLIENT_ID, OAUTH_CLIENT_SECRET, auth_value, sizeof(auth_value));
-//   char headers[192];
+//   char auth_value[256]; // >= 4*ceil((strlen(id)+1+strlen(secret))/3) + 1 ; toujours verifier le retour
+//   if (!http_client_basic_auth(OAUTH_CLIENT_ID, OAUTH_CLIENT_SECRET, auth_value, sizeof(auth_value))) { ... }
+//   char headers[320];
 //   snprintf(headers, sizeof(headers), "Authorization: Basic %s\r\n", auth_value);
 //   http_post_oauth2(..., headers, ...);
 //
-// retourne false si out_len est insuffisant pour contenir le resultat encode.
+// retourne false si out_len est insuffisant pour contenir le resultat encode (dans ce cas out
+// n'est PAS modifie : ne pas l'utiliser sans avoir verifie la valeur de retour).
 bool http_client_basic_auth(const char *username, const char *password, char *out, size_t out_len);
 
 #endif
