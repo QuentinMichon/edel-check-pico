@@ -5,6 +5,10 @@
 #ifndef EDEL_CHECK_PICO_NAV_H
 #define EDEL_CHECK_PICO_NAV_H
 
+#include <stdbool.h>
+
+extern  bool running;
+
 typedef enum NAV_PAGE {
     NAV_PAGE_START,
     NAV_PAGE_PROFILE,

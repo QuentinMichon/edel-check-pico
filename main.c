@@ -63,13 +63,16 @@ int main(int argc, char *argv[]) {
     epd_fb_write_typo(10, 270, "edel id");
     epd_fb_write_typo(60, 45, "check");
     epd_fb_write_typo(60, 97, "settings");
-    
+
     epd_display_update_full();
 
-    while (true) {
+    while (running) {
         poll_usb_nav_key();
         sleep_ms(10);
     }
+
+    epd_fb_clear(false);
+    epd_display_update_full();
 
     return 0;
 }

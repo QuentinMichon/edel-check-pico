@@ -23,6 +23,7 @@ if ("${WIFI_SSID}" STREQUAL "" OR "${WIFI_PASSWORD}" STREQUAL "")
 endif()
 
 add_executable(${PROJECT_NAME} main.c
+        json/frozen.c
         wifi/wifi_setup.c
         wifi/http_client.c
         navigation/nav.c

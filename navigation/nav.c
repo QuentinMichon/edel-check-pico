@@ -11,6 +11,7 @@
 
 static nav_page_t state = NAV_PAGE_START;
 
+bool running = true;
 
 /*
  *      GESTION DES BOUTON + MENU
@@ -29,7 +30,14 @@ void poll_usb_nav_key(void) {
                     printf("go to check: 1\n");
                     // decouverte du client https (requete sortante)
                     // extra_headers = NULL ici ; pour ajouter un entete custom, ex: "Accept: application/json\r\n"
-                    http_get(HTTP_TEST_HOST, HTTP_TEST_PORT, HTTP_TEST_PATH, HTTP_TEST_USE_TLS, NULL, 10000);
+                    http_get(HTTP_TEST_HOST,
+                        HTTP_TEST_PORT,
+                        HTTP_TEST_PATH,
+                        HTTP_TEST_USE_TLS,
+                        NULL,
+                        10000
+                    );
+
                     break;
                 case '2':
                     printf("go to settings: 2\n");
@@ -42,6 +50,9 @@ void poll_usb_nav_key(void) {
                 case '4':
                     printf("NA: 4\n");
                     break;
+                case 'x':
+                    running = false;
+                    printf("EXIT\n");
                 default:
                     printf("poll_usb_nav_key: NOT SUPPORTED\n");
                     break;
