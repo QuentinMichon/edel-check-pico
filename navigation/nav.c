@@ -15,10 +15,13 @@ bool running = true;
 
 static void post_token(void) {
 
-    char auth_value[128];
-    char headers[192];
+    char auth_value[256];
+    char headers[320];
 
-    http_client_basic_auth(OAUTH_CLIENT_ID, OAUTH_CLIENT_SECRET, auth_value, sizeof(auth_value));
+    if (!http_client_basic_auth(OAUTH_CLIENT_ID, OAUTH_CLIENT_SECRET, auth_value, sizeof(auth_value))) {
+        printf("[nav] echec de construction de l'entete Basic Auth (buffer trop petit ?)\n");
+        return;
+    }
 
     snprintf(headers, sizeof(headers), "Authorization: Basic %s\r\n", auth_value);
 
