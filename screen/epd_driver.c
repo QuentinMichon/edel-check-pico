@@ -77,15 +77,19 @@ bool epd_wait_busy(uint32_t timeout_ms) {
     // Phase 2 : attend que BUSY REDESCENDE
     while (gpio_get(PIN_BUSY)) {
         if ( absolute_time_diff_us(start, get_absolute_time()) / 1000 > timeout_ms) {
+#ifdef DEBUG_PRINT
             printf("[screen] epd_wait_busy: timeout apres %u ms\n", timeout_ms);
+#endif
             return false;
         }
         sleep_ms(5);
     }
 
     uint32_t elapsed_ms = (uint32_t)(absolute_time_diff_us(start, get_absolute_time()) / 1000);
+#ifdef DEBUG_PRINT
     printf("[screen] epd_wait_busy: BUSY vu HIGH = %s, duree totale = %u ms\n",
            seen_high ? "OUI" : "NON (jamais monte !)", elapsed_ms);
+#endif
 
     return true;
 }
@@ -170,7 +174,9 @@ void epd_init(void) {
     data = 0x01;
     epd_send_data(&data);
 
+#ifdef DEBUG_PRINT
     printf("[screen] epd_init: sequence de config : OK.\n");
+#endif
 
     // --- CHARGEMENT DU LUT ---
 
@@ -189,9 +195,7 @@ void epd_init(void) {
     // du refresh inclut déjà "load temperature" et "load LUT" depuis
     // l'OTP, juste avant le driving du panneau.
 
-    printf("[screen] epd_init: OK.\n");
-
-    printf("[screen] epd ready!\n");
+    printf("[screen] e-paper driver (epd) ready!\n");
 }
 
 // ========= FRAMEBUFFER ========
@@ -500,3 +504,29 @@ void epd_display_update_partial(void) {
     printf("[screen] epd_display_update_partial: %s\n", ok ? "termine." : "TIMEOUT.");
 }
 
+#include <stdarg.h>
+
+void display_menu(bool full, int nb_lines, ...) {
+    if (nb_lines > 4 || nb_lines < 1) {
+        return;
+    }
+
+    int h = 46;
+    va_list args;
+    va_start(args, nb_lines);
+
+    memcpy(epd_framebuffer, fullscreen_base, EPD_BUFFER_SIZE);
+    epd_fb_draw_image(342, 270, epd_image_bat_80, EPD_IMAGE_BAT_W, EPD_IMAGE_BAT_H);
+    epd_fb_write_typo(10, 270, "edel id");
+
+    for (int i = 0; i < nb_lines; i++) {
+        epd_fb_write_typo(60, h, va_arg(args, char*));
+        h += 52;
+    }
+
+    if (full) {
+        epd_display_update_full();
+    } else {
+        epd_display_update_partial();
+    }
+}

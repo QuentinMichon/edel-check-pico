@@ -19,7 +19,6 @@
 #endif
 
 
-
 /*=================================================================
  *  Main
  *=================================================================*/
@@ -34,10 +33,10 @@ int main(int argc, char *argv[]) {
     printf("   -   Screen\n");
     printf("   -   POST token\n");
 
-    // init GPIO
+    // --- init GPIO ---
     init_gpio();
 
-    // init screen
+    // --- init screen ---
     epd_init();
 
     epd_fb_clear(true);
@@ -50,7 +49,7 @@ int main(int argc, char *argv[]) {
         printf("\nwifi_init() failed\n");
         return -1;
     }
-
+    
     // TODO MOVE dans settings
     if (!wifi_connect(WIFI_SSID, WIFI_PASSWORD, 30000)) {
         printf("impossible de continuer sans wifi\n");
@@ -59,20 +58,16 @@ int main(int argc, char *argv[]) {
 
     sleep_ms(500);
 
-    memcpy(epd_framebuffer, fullscreen_base, EPD_BUFFER_SIZE);
-    epd_fb_draw_image(342, 270, epd_image_bat_80, EPD_IMAGE_BAT_W, EPD_IMAGE_BAT_H);
-    epd_fb_write_typo(10, 270, "edel id");
-    epd_fb_write_typo(60, 45, "check");
-    epd_fb_write_typo(60, 97, "settings");
+    // --- END OF INIT PART
 
-    epd_display_update_full();
+    display_menu(true, 4, "check", "settings", "post token", "mcquenty");
 
     while (running) {
         poll_usb_nav_key();
         sleep_ms(10);
     }
 
-    epd_fb_clear(false);
+    epd_fb_clear(true);
     epd_display_update_full();
 
     return 0;

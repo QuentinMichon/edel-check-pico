@@ -5,14 +5,21 @@
 #include "nav.h"
 
 #include <stdio.h>
+#include "screen/epd_driver.h"
 #include "pico/stdio.h"
 #include "http_client.h"
+#include "json/json_util.h"
 
 
 static nav_page_t state = NAV_PAGE_START;
 
 bool running = true;
 
+
+/*
+ *          1) POST pour avoir le bareer token EDEL-ID
+ *              POST + parse le JSON + save le token
+ */
 static void post_token(void) {
 
     char auth_value[256];
@@ -39,8 +46,9 @@ static void post_token(void) {
     );
 
     if (ok) {
-        printf("[nav] reponse: %s\n", body);
+        handle_token(body);
     }
+
 }
 
 /*
@@ -74,6 +82,7 @@ void poll_usb_nav_key(void) {
                 case '2':
                     printf("go to settings: 2\n");
                     printf("B1:back\n");
+                    display_menu(false, 4, "wifi", "", "", "back to menu");
                     state = NAV_PAGE_SETTINGS;
                     break;
                 case '3':
@@ -95,9 +104,7 @@ void poll_usb_nav_key(void) {
         case NAV_PAGE_SETTINGS:
             switch (c) {
                 case '1':
-                    printf("go to start: 1\n");
-                    printf("B1:check B2:settings\n");
-                    state = NAV_PAGE_START;
+                    printf("NA: 1\n");
                     break;
                 case '2':
                     printf("NA: 2\n");
@@ -106,7 +113,10 @@ void poll_usb_nav_key(void) {
                     printf("NA: 3\n");
                     break;
                 case '4':
-                    printf("NA: 4\n");
+                    printf("go to start: 1\n");
+                    printf("B1:check B2:settings\n");
+                    display_menu(false, 4, "check", "settings", "post token", "mcquenty");
+                    state = NAV_PAGE_START;
                     break;
                 default:
                     printf("poll_usb_nav_key: NOT SUPPORTED\n");

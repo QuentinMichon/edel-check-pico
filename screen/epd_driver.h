@@ -13,6 +13,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdarg.h>
 
 // Dimension du panneau (Adafruit 6381, 400x300)
 #define EPD_WIDTH       400
@@ -48,5 +49,7 @@ void epd_fb_write_typo(int x, int y, char *text);
 void epd_write_plane(uint8_t ram_cmd);
 void epd_display_update_full(void);
 void epd_display_update_partial(void);
+
+void display_menu(bool full, int nb_lines, ...);
 
 #endif //EDEL_CHECK_PICO_EPD_DRIVER_H
