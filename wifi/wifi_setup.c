@@ -30,6 +30,6 @@ bool wifi_connect(const char *ssid, const char *password, uint32_t timeout_ms) {
         return false;
     }
 
-    printf("[wifi] connecte, ip = %s\n", ip4addr_ntoa(netif_ip4_addr(netif_default)));
+    printf("[wifi] connected, ip = %s\n", ip4addr_ntoa(netif_ip4_addr(netif_default)));
     return true;
 }
