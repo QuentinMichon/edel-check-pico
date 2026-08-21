@@ -42,6 +42,7 @@ void epd_init(void);
 // manip du frame buffer
 void epd_fb_clear(bool white);
 void epd_fb_set_pixel(int x, int y, bool white);
+void epd_fb_fill_rect(int x, int y, int w, int h, bool white);
 void epd_fb_draw_image(int x, int y, const uint8_t *img, int w, int h);
 void epd_fb_write_typo(int x, int y, char *text);
 
