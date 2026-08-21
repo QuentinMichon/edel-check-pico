@@ -30,11 +30,14 @@ add_executable(${PROJECT_NAME} main.c
         navigation/nav.c
         gpio/gpio_driver.c
         screen/epd_driver.c
+        storage/storage_manager.c
 )
 
 target_link_libraries(${PROJECT_NAME}
         pico_stdlib
         hardware_spi
+        hardware_flash
+        hardware_sync
         pico_cyw43_arch_lwip_threadsafe_background
         pico_lwip_mbedtls
         pico_mbedtls

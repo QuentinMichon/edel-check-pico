@@ -4,6 +4,8 @@
 
 #include "json_util.h"
 
+#include "storage/storage_manager.h"
+
 // Compare un token frozen (issu de %T) a une chaine litterale.
 static bool json_token_eq(const struct json_token *tok, const char *s) {
     return tok->type == JSON_TYPE_STRING && tok->len == (int)strlen(s) &&
@@ -51,6 +53,30 @@ void handle_token(const char *body) {
 
     json_token_copy_unescaped(&access_token, token, sizeof(token));
 
-    printf("[http] --- access_token ---\n");
-    printf("[http] %s\n", token);
+    // stock Bearer token dans le local storage
+    put_bearer_token(token);
+
+}
+
+// dessine dans le framebuffer e-paper le QR code contenu dans le corps JSON d'une reponse de
+// verification EDEL-ID (qrCodeBitMap.rows : un tableau de chaines de '0'/'1'), coin haut-gauche
+// en (x, y) - meme convention que epd_fb_draw_image. scale (1, 2 ou 3, borne sinon) agrandit
+// chaque module du QR code en un carre de scale x scale pixels. comme epd_fb_draw_image, ne
+// declenche aucun refresh : c'est a l'appelant d'appeler epd_display_update_full/partial ensuite.
+void print_qr_code(const char *body, int x, int y, int scale) {
+    if (scale < 1) scale = 1;
+    if (scale > 3) scale = 3;
+
+    int len = (int) strlen(body);
+
+    for (int row = 0; ; row++) {
+        struct json_token line = JSON_INVALID_TOKEN;
+        if (json_scanf_array_elem(body, len, ".qrCodeBitMap.rows", row, &line) < 0) {
+            break;
+        }
+        for (int col = 0; col < line.len; col++) {
+            bool white = (line.ptr[col] != '1');
+            epd_fb_fill_rect(x + col * scale, y + row * scale, scale, scale, white);
+        }
+    }
 }

@@ -32,6 +32,17 @@
 // =================================================================
 
 
+// =================================================================
+// cible utilisee pour la demo de verification EDEL-ID (claims), authentifiee par Bearer token
+// =================================================================
+
+#define VERIFY_CH_HOST "api.edel-id.app"
+#define VERIFY_CH_PORT 443
+#define VERIFY_CH_PATH "/api/verification/ch"
+#define VERIFY_CH_USE_TLS true
+// =================================================================
+
+
 // effectue une requete GET vers host:port/path (en http simple, ou en https si use_tls est vrai)
 // et affiche la reponse brute (entetes + corps, tels que recus) sur la sortie standard. bloque
 // jusqu'a la fin de la reponse ou expiration de timeout_ms. port = 0 => port par defaut (80/443).
@@ -61,13 +72,14 @@ bool http_get(const char *host, uint16_t port, const char *path, bool use_tls,
 // out_body/out_body_len : voir http_get (meme convention - corps seul, NUL-termine, NULL/0 pour
 // ne pas capturer).
 //
-// nommee "_oauth2" car pensee pour le flux client_credentials (ex: POST vers /oauth/v2/token
-// avec un entete "Authorization: Basic ..." construit via http_client_basic_auth), mais reste
-// generique dans ses parametres.
-bool http_post_oauth2(const char *host, uint16_t port, const char *path, bool use_tls,
-                       const char *content_type, const char *body,
-                       const char *extra_headers, uint32_t timeout_ms,
-                       char *out_body, size_t out_body_len);
+// generique : utilisable aussi bien pour le flux OAuth2 client_credentials (POST vers
+// /oauth/v2/token avec un entete "Authorization: Basic ..." construit via
+// http_client_basic_auth) que pour n'importe quel autre POST (ex: "Authorization: Bearer ..."
+// vers une API applicative).
+bool http_post(const char *host, uint16_t port, const char *path, bool use_tls,
+                const char *content_type, const char *body,
+                const char *extra_headers, uint32_t timeout_ms,
+                char *out_body, size_t out_body_len);
 
 // construit dans out (NUL-terminee) la valeur base64 de "username:password", a utiliser par
 // l'appelant pour composer un entete d'authentification HTTP Basic, ex :
@@ -76,7 +88,7 @@ bool http_post_oauth2(const char *host, uint16_t port, const char *path, bool us
 //   if (!http_client_basic_auth(OAUTH_CLIENT_ID, OAUTH_CLIENT_SECRET, auth_value, sizeof(auth_value))) { ... }
 //   char headers[320];
 //   snprintf(headers, sizeof(headers), "Authorization: Basic %s\r\n", auth_value);
-//   http_post_oauth2(..., headers, ...);
+//   http_post(..., headers, ...);
 //
 // retourne false si out_len est insuffisant pour contenir le resultat encode (dans ce cas out
 // n'est PAS modifie : ne pas l'utiliser sans avoir verifie la valeur de retour).

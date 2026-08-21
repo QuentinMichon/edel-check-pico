@@ -32,7 +32,9 @@ typedef struct {
     struct altcp_pcb *pcb;   // la "connexion" (tcp nu, ou tcp+tls selon use_tls)
     ip_addr_t remote_addr;   // ip du serveur, remplie par la resolution dns
     uint16_t port;
-    char request[768];       // notre requete HTTP construite a la main (avec nos propres entetes)
+    char request[2048];      // notre requete HTTP construite a la main (avec nos propres entetes)
+                              // taille dimensionnee pour un Authorization: Bearer <JWT> qui peut
+                              // approcher MEM_BEARER_TOKEN_SIZE (800, voir storage_manager.h)
     bool dns_done;
     volatile bool complete;  // passe a true par http_client_result() quand tout est termine
     int result;              // 0 = ok, != 0 = erreur (voir http_client_result)
@@ -43,7 +45,23 @@ typedef struct {
     size_t out_body_used;     // nb d'octets de corps deja copies dans out_body
     uint8_t header_match;     // etat de l'automate de detection de "\r\n\r\n" (0..4)
     bool out_body_truncated;  // vrai si le corps recu depassait out_body_len
+
+    char header_buf[1024];    // accumulation des entetes bruts, pour y chercher Transfer-Encoding
+    size_t header_buf_len;    // nb d'octets accumules dans header_buf (borne a sizeof(header_buf))
+    bool chunked;             // vrai si "Transfer-Encoding: chunked" detecte dans les entetes
+    uint8_t chunk_state;      // etat de l'automate de dechunking (voir enum http_chunk_state_t)
+    size_t chunk_remaining;   // taille du chunk courant restant a copier (ou accumulateur hexa)
 } http_client_state_t;
+
+// etats de l'automate de dechunking RFC 7230 (Transfer-Encoding: chunked)
+enum http_chunk_state_t {
+    HTTP_CHUNK_SIZE = 0,  // lecture des chiffres hexa de la taille du chunk (extensions ignorees)
+    HTTP_CHUNK_SIZE_LF,   // "\r" vu, attente du "\n" terminant la ligne de taille
+    HTTP_CHUNK_DATA,      // copie de chunk_remaining octets de donnees dans out_body
+    HTTP_CHUNK_DATA_CR,   // donnees terminees, attente du "\r" qui les suit
+    HTTP_CHUNK_DATA_LF,   // "\r" vu, attente du "\n" separant ce chunk du suivant
+    HTTP_CHUNK_DONE,      // chunk terminal (taille 0) atteint : corps termine, reste ignore
+};
 
 // ferme proprement la connexion et detache nos callbacks (sinon lwIP pourrait rappeler une
 // fonction sur un pcb en cours de fermeture / deja libere).
@@ -72,18 +90,50 @@ static err_t http_client_result(http_client_state_t *state, int result) {
     return http_client_close(state);
 }
 
+// recherche insensible a la casse de needle dans haystack (haystack de longueur connue, pas
+// forcement NUL-termine sur toute sa capacite). utilise pour reperer "transfer-encoding: chunked"
+// quel que soit le style de casse employe par le serveur.
+static bool http_client_header_contains_ci(const char *haystack, size_t haystack_len, const char *needle) {
+    size_t needle_len = strlen(needle);
+    if (needle_len == 0 || haystack_len < needle_len) {
+        return false;
+    }
+    for (size_t i = 0; i + needle_len <= haystack_len; i++) {
+        size_t j = 0;
+        for (; j < needle_len; j++) {
+            char a = haystack[i + j];
+            char b = needle[j];
+            if (a >= 'A' && a <= 'Z') a = (char) (a - 'A' + 'a');
+            if (b >= 'A' && b <= 'Z') b = (char) (b - 'A' + 'a');
+            if (a != b) break;
+        }
+        if (j == needle_len) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // avance l'automate de detection de "\r\n\r\n" au fil des octets recus (le flux peut arriver
 // decoupe n'importe ou, y compris au milieu du separateur, d'ou cet etat conserve dans state
-// entre deux appels). une fois les entetes termines, copie les octets suivants (le corps de la
-// reponse) dans state->out_body, borne a out_body_len - 1, et NUL-termine a chaque appel.
+// entre deux appels), en accumulant au passage les entetes dans state->header_buf (borne, pour y
+// chercher Transfer-Encoding une fois les entetes termines). retourne le nombre d'octets de data
+// consommes comme entetes ; le reste (data[retour..len)) appartient deja au corps.
 //
 // note : "\r\n\r\n" n'a pas de prefixe qui soit aussi un suffixe plus court (hormis lui-meme),
 // donc un simple redemarrage sur SEP[0] en cas d'echec suffit ici (pas besoin d'un vrai KMP).
-static void http_client_capture_body(http_client_state_t *state, const uint8_t *data, uint16_t len) {
+static uint16_t http_client_scan_headers(http_client_state_t *state, const uint8_t *data, uint16_t len) {
     static const char SEP[4] = {'\r', '\n', '\r', '\n'};
-    uint16_t i = 0;
 
+    if (state->header_match >= 4) {
+        return 0; // deja passe les entetes, tout ce morceau appartient au corps
+    }
+
+    uint16_t i = 0;
     while (state->header_match < 4 && i < len) {
+        if (state->header_buf_len + 1 < sizeof(state->header_buf)) {
+            state->header_buf[state->header_buf_len++] = (char) data[i];
+        }
         if (data[i] == (uint8_t) SEP[state->header_match]) {
             state->header_match++;
         } else {
@@ -92,23 +142,117 @@ static void http_client_capture_body(http_client_state_t *state, const uint8_t *
         i++;
     }
 
-    if (state->header_match < 4 || i >= len) {
-        return; // toujours dans les entetes, ou plus rien a copier dans ce morceau
+    if (state->header_match == 4) {
+        state->header_buf[state->header_buf_len] = '\0';
+        state->chunked = http_client_header_contains_ci(state->header_buf, state->header_buf_len,
+                                                          "transfer-encoding: chunked");
     }
 
+    return i;
+}
+
+// copie brute bornee dans out_body (cas Content-Length, ou corps delimite par la fermeture de
+// connexion). borne a out_body_len - 1, et NUL-termine a chaque appel.
+static void http_client_copy_body_raw(http_client_state_t *state, const uint8_t *data, size_t len) {
     size_t remaining_cap = (state->out_body_len > state->out_body_used + 1)
                                 ? state->out_body_len - state->out_body_used - 1 : 0;
-    size_t available = (size_t) (len - i);
-    size_t to_copy = (available > remaining_cap) ? remaining_cap : available;
-    if (to_copy < available) {
+    size_t to_copy = (len > remaining_cap) ? remaining_cap : len;
+    if (to_copy < len) {
         state->out_body_truncated = true;
     }
     if (to_copy > 0) {
-        memcpy(state->out_body + state->out_body_used, data + i, to_copy);
+        memcpy(state->out_body + state->out_body_used, data, to_copy);
         state->out_body_used += to_copy;
     }
     if (state->out_body_len > 0) {
         state->out_body[state->out_body_used] = '\0';
+    }
+}
+
+// decode un flux Transfer-Encoding: chunked (RFC 7230 4.1) au fil des octets recus, et ne copie
+// dans out_body que les donnees de chunk (jamais les lignes de taille ni les CRLF de separation).
+// l'etat (chunk_state/chunk_remaining) est conserve dans state entre deux appels, puisqu'une
+// ligne de taille ou un chunk de donnees peut tres bien etre coupe entre deux morceaux TCP.
+static void http_client_copy_body_chunked(http_client_state_t *state, const uint8_t *data, size_t len) {
+    size_t i = 0;
+    while (i < len && state->chunk_state != HTTP_CHUNK_DONE) {
+        uint8_t c = data[i];
+        switch (state->chunk_state) {
+            case HTTP_CHUNK_SIZE: {
+                int hex;
+                if (c >= '0' && c <= '9') hex = c - '0';
+                else if (c >= 'a' && c <= 'f') hex = c - 'a' + 10;
+                else if (c >= 'A' && c <= 'F') hex = c - 'A' + 10;
+                else hex = -1;
+
+                if (hex >= 0) {
+                    state->chunk_remaining = state->chunk_remaining * 16 + (size_t) hex;
+                } else if (c == '\r') {
+                    state->chunk_state = HTTP_CHUNK_SIZE_LF;
+                }
+                // tout autre caractere (ex: extension ";foo=bar") est simplement ignore
+                i++;
+                break;
+            }
+            case HTTP_CHUNK_SIZE_LF:
+                state->chunk_state = (state->chunk_remaining == 0) ? HTTP_CHUNK_DONE : HTTP_CHUNK_DATA;
+                i++;
+                break;
+            case HTTP_CHUNK_DATA: {
+                size_t remaining_cap = (state->out_body_len > state->out_body_used + 1)
+                                            ? state->out_body_len - state->out_body_used - 1 : 0;
+                size_t available = len - i;
+                size_t chunk_avail = (available < state->chunk_remaining) ? available : state->chunk_remaining;
+                size_t to_copy = (chunk_avail > remaining_cap) ? remaining_cap : chunk_avail;
+                if (to_copy < chunk_avail) {
+                    state->out_body_truncated = true;
+                }
+                if (to_copy > 0) {
+                    memcpy(state->out_body + state->out_body_used, data + i, to_copy);
+                    state->out_body_used += to_copy;
+                }
+                // on avance toujours du nombre d'octets de DONNEES consommes (meme si to_copy est
+                // plus petit faute de place) : il faut continuer a suivre le flux chunked
+                // correctement, juste sans copier le surplus dans out_body.
+                i += chunk_avail;
+                state->chunk_remaining -= chunk_avail;
+                if (state->chunk_remaining == 0) {
+                    state->chunk_state = HTTP_CHUNK_DATA_CR;
+                }
+                break;
+            }
+            case HTTP_CHUNK_DATA_CR:
+                state->chunk_state = HTTP_CHUNK_DATA_LF;
+                i++;
+                break;
+            case HTTP_CHUNK_DATA_LF:
+                state->chunk_state = HTTP_CHUNK_SIZE;
+                state->chunk_remaining = 0; // reinitialise l'accumulateur pour la prochaine taille
+                i++;
+                break;
+            default:
+                i = len;
+                break;
+        }
+    }
+    if (state->out_body_len > 0) {
+        state->out_body[state->out_body_used] = '\0';
+    }
+}
+
+// point d'entree de la capture du corps : avance d'abord le scan des entetes (et la detection de
+// Transfer-Encoding), puis dispatche le reste du morceau vers le decodeur chunked ou la copie
+// brute selon ce qui a ete detecte.
+static void http_client_capture_body(http_client_state_t *state, const uint8_t *data, uint16_t len) {
+    uint16_t consumed = http_client_scan_headers(state, data, len);
+    if (consumed >= len) {
+        return; // tout ce morceau appartenait aux entetes
+    }
+
+    if (state->chunked) {
+        http_client_copy_body_chunked(state, data + consumed, (size_t) (len - consumed));
+    } else {
+        http_client_copy_body_raw(state, data + consumed, (size_t) (len - consumed));
     }
 }
 
@@ -390,13 +534,13 @@ bool http_get(const char *host, uint16_t port, const char *path, bool use_tls,
 
 
 /*
- *      --- POST (OAuth2) --------------------
+ *      --- POST --------------------
  */
 
-bool http_post_oauth2(const char *host, uint16_t port, const char *path, bool use_tls,
-                       const char *content_type, const char *body,
-                       const char *extra_headers, uint32_t timeout_ms,
-                       char *out_body, size_t out_body_len) {
+bool http_post(const char *host, uint16_t port, const char *path, bool use_tls,
+                const char *content_type, const char *body,
+                const char *extra_headers, uint32_t timeout_ms,
+                char *out_body, size_t out_body_len) {
     http_client_state_t *state = http_client_alloc(use_tls, &port, out_body, out_body_len);
     if (!state) {
         return false;
@@ -443,7 +587,7 @@ bool http_post_oauth2(const char *host, uint16_t port, const char *path, bool us
 
 // construit la valeur base64 de "username:password" dans out (NUL-terminee), utilisable par
 // l'appelant pour composer un entete "Authorization: Basic <out>\r\n" a passer en extra_headers
-// a http_get/http_post_oauth2. retourne false si un des buffers est trop petit.
+// a http_get/http_post. retourne false si un des buffers est trop petit.
 bool http_client_basic_auth(const char *username, const char *password, char *out, size_t out_len) {
     char credentials[128];
     int n = snprintf(credentials, sizeof(credentials), "%s:%s",

@@ -10,7 +10,7 @@
 extern  bool running;
 
 typedef enum NAV_PAGE {
-    NAV_PAGE_START,
+    NAV_PAGE_MENU,
     NAV_PAGE_PROFILE,
     NAV_PAGE_CHECK,
     NAV_PAGE_SETTINGS,

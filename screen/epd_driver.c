@@ -13,6 +13,7 @@
 #include "assets/battery/epd_image_bat_80.h"
 #include "assets/typo/epd_typo_5.h"
 #include "assets/full_screen/epd_image_scanner.h"
+#include "assets/full_screen/check_fullscreen.h"
 
 uint8_t epd_framebuffer[EPD_BUFFER_SIZE];
 
@@ -229,6 +230,16 @@ void epd_fb_set_pixel(int x, int y, bool white) {
         epd_framebuffer[byte_index] &= ~mask;  // force le bit à 0
     }
 
+}
+
+// Remplit un rectangle de w x h pixels dans le framebuffer, coin haut-gauche en (x, y).
+// Reutilise epd_fb_set_pixel, qui gere deja le clipping hors ecran.
+void epd_fb_fill_rect(int x, int y, int w, int h, bool white) {
+    for (int row = 0; row < h; row++) {
+        for (int col = 0; col < w; col++) {
+            epd_fb_set_pixel(x + col, y + row, white);
+        }
+    }
 }
 
 // Copie une image 1 bit/pixel (format exporté par epd_paint.html) dans le
