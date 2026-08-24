@@ -407,7 +407,37 @@ static http_client_state_t *http_client_alloc(bool use_tls, uint16_t *port,
 // partie commune a toute requete, une fois state->request deja rempli : resolution dns,
 // connexion tcp/tls, attente bloquante de la reponse, puis nettoyage. libere state dans tous
 // les cas (succes ou echec).
+// Code de statut de la DERNIERE requete terminee (0 = inconnu).
+//
+// Le client est bloquant et sequentiel : une requete est entierement terminee quand
+// http_get/http_post rend la main, donc lire cette valeur juste apres l'appel est bien
+// defini. Elle n'est renseignee que si l'appelant a fourni un buffer de capture, seul cas
+// ou les entetes sont accumules.
+//
+// Distinguer 200 / 202 / 410 est indispensable a l'appairage : le contrat traite un 410
+// comme definitif (appairage expire, ou secret deja delivre) alors qu'une panne passagere
+// doit etre retentee. Confondre les deux fait passer un boitier en SUSPECT.
+static int g_last_status = 0;
+
+int http_client_last_status(void) {
+    return g_last_status;
+}
+
+// extrait NNN de "HTTP/1.1 NNN ...", 0 si la ligne est absente ou malformee
+static int http_client_parse_status(const char *headers) {
+    if (strncmp(headers, "HTTP/", 5) != 0) {
+        return 0;
+    }
+    const char *space = strchr(headers, ' ');
+    if (space == NULL) {
+        return 0;
+    }
+    return (int) strtol(space + 1, NULL, 10);
+}
+
 static bool http_client_run(http_client_state_t *state, const char *host, bool use_tls, uint32_t timeout_ms) {
+    g_last_status = 0;
+
     // 1) RESOLUTION DNS =============================================================
 
     printf("[http] resolution DNS de \"%s\"...\n", host);
@@ -487,8 +517,14 @@ static bool http_client_run(http_client_state_t *state, const char *host, bool u
         printf("\n[http] attention: payload tronque (buffer de sortie trop petit)\n");
     }
 
+    if (state->header_buf_len > 0) {
+        state->header_buf[state->header_buf_len < sizeof(state->header_buf)
+                              ? state->header_buf_len : sizeof(state->header_buf) - 1] = '\0';
+        g_last_status = http_client_parse_status(state->header_buf);
+    }
+
     bool ok = (state->result == 0);
-    printf("\n[http] --- fin (resultat = %d) ---\n", state->result);
+    printf("\n[http] --- fin (resultat = %d, statut = %d) ---\n", state->result, g_last_status);
     free(state);
     return ok;
 }

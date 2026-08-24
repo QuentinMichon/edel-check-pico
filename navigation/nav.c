@@ -7,10 +7,10 @@
 #include <stdio.h>
 #include "screen/epd_driver.h"
 #include "pico/stdio.h"
-#include "http_client.h"
-#include "assets/full_screen/check_fullscreen.h"
-#include "json/json_util.h"
 #include "storage/storage_manager.h"
+#include "profiles/profiles.h"
+#include "session/session.h"
+#include "screen/epd_text.h"
 
 
 static nav_page_t state = NAV_PAGE_MENU;
@@ -20,10 +20,8 @@ bool running = true;
 static void go_to_menu(void) {
 
     printf("\n\n\n======== MENU ==========\n\n");
-    printf("1) check\n");
+    printf("1) check         (%d profil(s) recu(s) du cloud)\n", profiles_count());
     printf("2) settings\n");
-    printf("3)\n");
-    printf("4)\n");
     printf("x) exit\n");
     printf("\n\n\n========================\n\n");
 
@@ -32,18 +30,37 @@ static void go_to_menu(void) {
     state = NAV_PAGE_MENU;
 }
 
-static void go_to_profile(void) {
+/*
+ *      La page qui compte : les profils envoyes par le cloud sur dev/{id}/cfg.
+ *
+ *      Une touche = un profil = une session de verification. Le boitier ne sait pas ce que
+ *      chaque profil verifie, seulement quoi afficher et quel identifiant renvoyer.
+ */
+static void go_to_verify(void) {
 
-    printf("\n\n\n====== PROFILES ========\n\n");
-    printf("1) TOKEN\n");
-    printf("2) QR_CH\n");
-    printf("3)\n");
+    int n = profiles_count();
+
+    printf("\n\n\n====== VERIFIER ========\n\n");
+    if (n == 0) {
+        printf("aucun profil assigne a ce boitier\n");
+        printf("-> en assigner un depuis le portail operateur\n");
+    }
+    for (int i = 0; i < n && i < 3; i++) {
+        printf("%d) %s\n", i + 1, profiles_get(i)->label);
+    }
     printf("4) BACK TO MENU\n");
     printf("\n\n\n========================\n\n");
 
-    display_menu(false, 4, "token", "qr ch", "", "back to menu");
+    // Les libelles viennent du portail et contiennent des accents : la police de l'ecran
+    // ne connait que A-Z, il faut les replier avant de dessiner.
+    static char l1[32], l2[32], l3[32];
+    epd_text_fold_ascii(n > 0 ? profiles_get(0)->label : "AUCUN PROFIL", l1, sizeof(l1));
+    epd_text_fold_ascii(n > 1 ? profiles_get(1)->label : "", l2, sizeof(l2));
+    epd_text_fold_ascii(n > 2 ? profiles_get(2)->label : "", l3, sizeof(l3));
 
-    state = NAV_PAGE_PROFILE;
+    display_menu(false, 4, l1, l2, l3, "back to menu");
+
+    state = NAV_PAGE_VERIFY;
 }
 
 static void go_to_settings(void) {
@@ -60,102 +77,11 @@ static void go_to_settings(void) {
     state = NAV_PAGE_SETTINGS;
 }
 
-static void go_to_check(void) {
-
-    printf("\n\n\n====== CHECK ===========\n\n");
-    printf("1) BACK TO PROFILES\n");
-    printf("2) \n");
-    printf("3) \n");
-    printf("4) \n");
-    printf("\n\n\n========================\n\n");
-
-    // EPD : déjà affiché dans verify_ch()
-
-    state = NAV_PAGE_CHECK;
-}
-
-/*
- *          1) POST pour avoir le bareer token EDEL-ID
- *              POST + parse le JSON + save le token
- */
-static bool post_token(void) {
-
-    // static : la pile du core0 ne fait que 4 Ko (SCRATCH_Y) sur ce chip, ces buffers y sont
-    // beaucoup trop gros. pas de probleme de reentrance ici (boucle nav mono-thread, un seul
-    // appel a la fois).
-    static char auth_value[256];
-    static char headers[320];
-    static char body[2048];
-
-    if (!http_client_basic_auth(OAUTH_CLIENT_ID, OAUTH_CLIENT_SECRET, auth_value, sizeof(auth_value))) {
-        printf("[nav] echec de construction de l'entete Basic Auth (buffer trop petit ?)\n");
-        return false;
-    }
-
-    snprintf(headers, sizeof(headers), "Authorization: Basic %s\r\n", auth_value);
-
-    bool ok = http_post(OAUTH_TOKEN_HOST,
-        OAUTH_TOKEN_PORT,
-        OAUTH_TOKEN_PATH,
-        OAUTH_TOKEN_USE_TLS,
-        "application/x-www-form-urlencoded",
-        "grant_type=client_credentials&scope=openid",
-        headers,
-        10000,
-        body,
-        sizeof(body)
-    );
-
-    if (ok) {
-        handle_token(body);
-        return true;
-    }
-    return false;
-}
-
-/*
- *          2) POST verification EDEL-ID (claims), authentifie par le Bearer token stocke
- *              en local storage (voir post_token / handle_token)
- */
-static void verify_ch(void) {
-
-    // TODO boucle pour resend verify_ch si le token est invalide après avoir fait un post_token() à nouveau
-
-    persistent_storage_t *local_storage = get_local_storage();
-
-    if (local_storage->bearer_token[0] == '\0') {
-        if (!post_token()) {
-            return;
-        }
-    }
-
-    // static, memes raisons que dans post_token(). body est dimensionne large : la reponse de
-    // verification embarque un bitmap de QR code en JSON et pese couramment 7-8 Ko.
-    static char headers[MEM_BEARER_TOKEN_SIZE + 64];
-    static char body[10240];
-
-    snprintf(headers, sizeof(headers), "Authorization: Bearer %s\r\n", local_storage->bearer_token);
-
-    bool ok = http_post(VERIFY_CH_HOST,
-        VERIFY_CH_PORT,
-        VERIFY_CH_PATH,
-        VERIFY_CH_USE_TLS,
-        "application/json",
-        "{\"verificationClaims\": [\"$.given_name\", \"$.family_name\", \"$.birth_date\"]}",
-        headers,
-        10000,
-        body,
-        sizeof(body)
-    );
-
-    if (ok) {
-        printf("[nav] verification reponse: %s\n", body);
-
-        epd_fb_clear(true);
-        memcpy(epd_framebuffer, check_fullscreen, EPD_BUFFER_SIZE);
-        print_qr_code(body, 78, 0, 3);
-        epd_fb_write_typo(35, 240, "back to profiles");
-        epd_display_update_full();
+void nav_redraw(void) {
+    switch (state) {
+        case NAV_PAGE_VERIFY:   go_to_verify();   break;
+        case NAV_PAGE_SETTINGS: go_to_settings(); break;
+        default:                go_to_menu();     break;
     }
 }
 
@@ -173,7 +99,7 @@ void poll_usb_nav_key(void) {
         case NAV_PAGE_MENU:
             switch (c) {
                 case '1':
-                    go_to_profile();
+                    go_to_verify();
                     break;
                 case '2':
                     go_to_settings();
@@ -213,20 +139,16 @@ void poll_usb_nav_key(void) {
             }
             break;
 
-        // ========================== PAGE PROFILE =================================
-        case NAV_PAGE_PROFILE:
+        // ========================== PAGE VERIFIER ================================
+        case NAV_PAGE_VERIFY:
             switch (c) {
                 case '1':
-                    post_token();
-                    go_to_profile();
-                    break;
                 case '2':
-                    // TODO image de chargement sur EPD
-                    verify_ch();
-                    go_to_check();
-                    break;
                 case '3':
-                    printf("NA: 3\n");
+                    // Le boitier publie " le profil N a ete demande " et rend la main.
+                    // Tout le reste - requete de presentation, rendu du QR, verdict -
+                    // se passe dans device-service, et redescend en images.
+                    session_open(c - '1');
                     break;
                 case '4':
                     go_to_menu();
@@ -237,25 +159,5 @@ void poll_usb_nav_key(void) {
             }
             break;
 
-        // ========================== PAGE CHECK ===================================
-        case NAV_PAGE_CHECK:
-            switch (c) {
-                case '1':
-                    go_to_profile();
-                    break;
-                case '2':
-                    printf("NA: 2\n");
-                    break;
-                case '3':
-                    printf("NA: 3\n");
-                    break;
-                case '4':
-                    printf("NA: 4\n");
-                    break;
-                default:
-                    printf("poll_usb_nav_key: NOT SUPPORTED\n");
-                    break;
-            }
-            break;
     }
 }

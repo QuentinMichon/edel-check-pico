@@ -22,6 +22,31 @@ if ("${WIFI_SSID}" STREQUAL "" OR "${WIFI_PASSWORD}" STREQUAL "")
         message(WARNING "WIFI_SSID / WIFI_PASSWORD non definis : relancer cmake avec -DWIFI_SSID=... -DWIFI_PASSWORD=...")
 endif()
 
+# adresse de l'API d'appairage. Les deux SEULS appels HTTP du boitier de toute sa vie
+# (POST /provisioning/claim et /provisioning/poll) ; ensuite tout passe par MQTT.
+set(EDEL_API_HOST "${EDEL_API_HOST}" CACHE STRING "hote de l'API d'appairage")
+set(EDEL_API_PORT "${EDEL_API_PORT}" CACHE STRING "port de l'API d'appairage")
+set(EDEL_API_USE_TLS "${EDEL_API_USE_TLS}" CACHE STRING "true/false : HTTPS vers l'API")
+
+# Bequille de developpement, a laisser vide en production.
+#
+# /provisioning/poll renvoie l'adresse du broker, et c'est elle qui fait foi : le boitier
+# la stocke en flash, donc demenager l'infrastructure ne demande aucune recompilation.
+# Tant que MQTT_PUBLIC_HOST vaut `localhost` cote edelcheck, le serveur annonce cependant
+# une adresse injoignable depuis le terrain — cette variable permet de la remplacer en
+# attendant que la configuration serveur soit corrigee.
+set(EDEL_BROKER_HOST_OVERRIDE "${EDEL_BROKER_HOST_OVERRIDE}" CACHE STRING "force l'adresse du broker (dev)")
+
+if ("${EDEL_API_HOST}" STREQUAL "")
+        set(EDEL_API_HOST "api.edelcheck.ch")
+endif()
+if ("${EDEL_API_PORT}" STREQUAL "")
+        set(EDEL_API_PORT 443)
+endif()
+if ("${EDEL_API_USE_TLS}" STREQUAL "")
+        set(EDEL_API_USE_TLS true)
+endif()
+
 add_executable(${PROJECT_NAME} main.c
         json/frozen.c
         json/json_util.c
@@ -30,7 +55,13 @@ add_executable(${PROJECT_NAME} main.c
         navigation/nav.c
         gpio/gpio_driver.c
         screen/epd_driver.c
+        screen/epd_text.c
         storage/storage_manager.c
+        enrollment/enrollment.c
+        mqtt/mqtt_client.c
+        profiles/profiles.c
+        session/session.c
+        image/image_rx.c
 )
 
 target_link_libraries(${PROJECT_NAME}
@@ -38,9 +69,13 @@ target_link_libraries(${PROJECT_NAME}
         hardware_spi
         hardware_flash
         hardware_sync
+        hardware_watchdog
         pico_cyw43_arch_lwip_threadsafe_background
         pico_lwip_mbedtls
         pico_mbedtls
+        # Le client MQTT vient de lwIP : on n'ecrit pas de protocole, seulement la logique
+        # du contrat. Cible fournie par le SDK (pico_lwip/CMakeLists.txt).
+        pico_lwip_mqtt
 )
 
 # redirige les printf vers la sortie USB
@@ -52,13 +87,34 @@ target_include_directories(${PROJECT_NAME} PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
         ${CMAKE_CURRENT_LIST_DIR}/config
         ${CMAKE_CURRENT_LIST_DIR}/wifi
+        ${CMAKE_CURRENT_LIST_DIR}/json
 )
 
 # config pour rendre stdio_init_all() bloquant en attente d'une communication avec picocom
 target_compile_definitions(${PROJECT_NAME} PRIVATE
+        # json/frozen.c utilise PRId64 / PRIu64 (lignes 579 et 698-701), que la chaine
+        # arm-none-eabi ne fournit pas : dans le <inttypes.h> de newlib ces macros sont
+        # gardees par `#if __int64_t_defined`, qui vaut faux ici. Sans ces deux lignes le
+        # firmware NE COMPILE PAS avec gcc arm-none-eabi 13.2.1 :
+        #   json/frozen.c:579:47: error: expected ':' before 'PRIu64'
+        # On les fournit en ligne de commande plutot que de modifier frozen.c, qui est du
+        # code tiers.
+        PRId64=\"lld\"
+        PRIu64=\"llu\"
+
         PICO_STDIO_USB_CONNECT_WAIT_TIMEOUT_MS=-1
         WIFI_SSID=\"${WIFI_SSID}\"
         WIFI_PASSWORD=\"${WIFI_PASSWORD}\"
+
+        EDEL_API_HOST=\"${EDEL_API_HOST}\"
+        EDEL_API_PORT=${EDEL_API_PORT}
+        EDEL_API_USE_TLS=${EDEL_API_USE_TLS}
 )
+
+if (NOT "${EDEL_BROKER_HOST_OVERRIDE}" STREQUAL "")
+        target_compile_definitions(${PROJECT_NAME} PRIVATE
+                EDEL_BROKER_HOST_OVERRIDE=\"${EDEL_BROKER_HOST_OVERRIDE}\")
+        message(STATUS "adresse du broker forcee a ${EDEL_BROKER_HOST_OVERRIDE} (bequille de dev)")
+endif()
 
 pico_add_extra_outputs(${PROJECT_NAME})
