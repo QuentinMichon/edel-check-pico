@@ -10,6 +10,18 @@
 #define MEM_ALIGNMENT               4
 #define MEM_SIZE                    4000
 #define MEMP_NUM_TCP_SEG            32
+
+// lwIP dimensionne son pool de timers par une formule (opt.h:519) qui ne somme que les
+// modules du COEUR : TCP + ARP + 2xDHCP + ACD + DNS. Les applications n'y figurent pas.
+// Or le client MQTT arme un timer cyclique a la connexion (mqtt.c:1073) : il en reclame
+// un de plus que ce que la formule a prevu, et le pool est exactement plein a cet instant.
+//
+// Symptome sans cette ligne, mesure le 23.08.2026, juste apres [wifi] connected :
+//   *** PANIC *** sys_timeout: timeout != NULL, pool MEMP_SYS_TIMEOUT is empty
+//
+// Le panic halte le CPU : picotool ne peut plus faire redemarrer la carte, seul le bouton
+// BOOTSEL repond.
+#define MEMP_NUM_SYS_TIMEOUT        16
 #define MEMP_NUM_ARP_QUEUE          10
 #define PBUF_POOL_SIZE              24
 

@@ -1,0 +1,22 @@
+# Artefacts de compilation
+build/
+*.uf2
+*.elf
+*.bin
+*.dis
+
+# Les binaires embarquent le SSID et le mot de passe Wi-Fi en clair : ils sont
+# compiles dans le firmware par -DWIFI_SSID / -DWIFI_PASSWORD. Ne jamais les commiter.
+
+# Identifiants de boitier recus a l'appairage
+*device-creds*.json
+
+# IDE
+.idea/
+.vscode/
+
+# Notes de travail, pas des livrables : elles decrivent des decisions deja prises et du
+# travail deja fait. Ce qu'elles contiennent de durable est dans docs/ARCHITECTURE.md.
+CLAUDE.md
+docs/PLAN-INTEGRATION.md
+docs/ENROLEMENT-PLAN.md

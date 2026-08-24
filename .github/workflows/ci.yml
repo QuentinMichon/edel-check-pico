@@ -1,0 +1,70 @@
+# Pipeline du firmware EdelCheck.
+#
+# Deux jobs, parce qu'ils repondent a deux questions differentes :
+#
+#   tests   la logique est-elle correcte ?      compile sur x86, 10 secondes, aucune
+#                                               dependance au SDK ni au materiel
+#   build   le firmware se compile-t-il ?       chaine arm-none-eabi + pico-sdk,
+#                                               produit un .uf2 telechargeable
+#
+# Le .uf2 en artefact permet de flasher un boitier depuis n'importe quel commit, sans
+# avoir a installer quoi que ce soit.
+
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  tests:
+    name: Tests unitaires
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compiler et executer les tests
+        run: make -C tests/unit
+
+  build:
+    name: Compilation du firmware
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Chaine de compilation ARM
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib \
+            cmake ninja-build
+
+      # Le SDK est clone a la profondeur 1 avec ses sous-modules : lwIP, mbedTLS et le
+      # pilote cyw43 en font partie, et le firmware ne compile pas sans eux.
+      - name: pico-sdk
+        run: |
+          git clone --depth 1 --branch 2.3.0 \
+            https://github.com/raspberrypi/pico-sdk.git "$HOME/pico-sdk"
+          git -C "$HOME/pico-sdk" submodule update --init --depth 1 \
+            lib/lwip lib/mbedtls lib/cyw43-driver lib/tinyusb
+
+      # Les identifiants Wi-Fi et l'adresse de l'API sont des valeurs de remplissage : ce
+      # job verifie que ca COMPILE, pas que ca fonctionne. Un binaire de CI n'est pas
+      # destine a etre flashe sur un boitier de production.
+      - name: Compiler
+        env:
+          PICO_SDK_PATH: /home/runner/pico-sdk
+        run: |
+          cmake -B build -G Ninja \
+            -DWIFI_SSID=ci -DWIFI_PASSWORD=ci-placeholder \
+            -DEDEL_API_HOST=api.example.invalid -DEDEL_API_PORT=443
+          cmake --build build
+
+      - name: Publier le .uf2
+        uses: actions/upload-artifact@v4
+        with:
+          name: edel-check-pico-${{ github.sha }}
+          path: build/edel-check-pico.uf2
+          retention-days: 14
