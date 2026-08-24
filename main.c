@@ -9,8 +9,11 @@
 #include "http_client.h"
 #include "navigation/nav.h"
 #include "screen/epd_driver.h"
+#include "screen/epd_text.h"
 #include "gpio/gpio_driver.h"
 #include "storage/storage_manager.h"
+#include "enrollment/enrollment.h"
+#include "mqtt/mqtt_client.h"
 
 
 #ifndef WIFI_SSID
@@ -22,6 +25,44 @@
 
 // flags pour savoir quand faire du polling sur batterie ou wifi
 static uint8_t flags_irq = 0b0;
+
+// L'ecran d'appairage.
+//
+// C'est le seul moment de la vie du boitier ou quelqu'un doit LIRE quelque chose dessus et
+// le recopier ailleurs. Le code est donc trace en grand - a l'echelle 7, un glyphe fait
+// 35x49 pixels, lisible a un metre d'un comptoir - et rien d'autre ne se dispute
+// l'attention.
+//
+// Les glyphes viennent de epd_text : epd_fb_write_typo ne saurait pas dessiner les
+// chiffres, et l'alphabet des codes en contient (ABCDEFGHJKLMNPQRSTUVWXYZ23456789).
+static void afficher_code_appairage(const char *code, int poll_interval_s) {
+    epd_fb_clear(true);
+
+    epd_fb_write_big_centered(38, "CODE D APPAIRAGE", 3);
+
+    // Un cadre autour du code : il separe ce qu'il faut recopier du reste de l'ecran.
+    epd_fb_fill_rect(20, 108, EPD_WIDTH - 40, 4, false);
+    epd_fb_fill_rect(20, 196, EPD_WIDTH - 40, 4, false);
+
+    epd_fb_write_big_centered(130, code, 7);
+
+    epd_fb_write_big_centered(232, "A SAISIR DANS LE PORTAIL", 2);
+    epd_fb_write_big_centered(258, "EXPIRE DANS 10 MINUTES", 2);
+
+    epd_display_update_full();
+
+    printf("\n[appairage] code affiche a l'ecran : %s\n", code);
+    printf("            interrogation du serveur toutes les %d s\n\n", poll_interval_s);
+}
+
+// Une fois l'identite obtenue, l'ecran doit cesser d'afficher un code que plus personne ne
+// doit saisir - sinon un passant le recopierait dans son propre portail.
+static void afficher_appaire(void) {
+    epd_fb_clear(true);
+    epd_fb_write_big_centered(120, "BOITIER APPAIRE", 4);
+    epd_fb_write_big_centered(180, "CONNEXION AU SERVEUR", 2);
+    epd_display_update_full();
+}
 
 bool periodic_check_callback(struct repeating_timer *t) {
     flags_irq = 0b1;
@@ -51,10 +92,9 @@ int main(int argc, char *argv[]) {
 
     persistent_storage_t *local_storage = get_local_storage();
 
-    printf("[storage] values\n");
-    printf("%s\n", local_storage->wifi_1_ssid);
-    printf("%s\n", local_storage->wifi_1_password);
-    printf("%s\n", local_storage->bearer_token);
+    // Le mot de passe Wi-Fi et le jeton ne sont plus imprimes : la console serie est
+    // lisible par quiconque branche un cable sur un boitier pose sur un comptoir.
+    printf("[storage] reseau configure : %s\n", local_storage->wifi_1_ssid);
 
     // --- init GPIO ---
     init_gpio();
@@ -81,18 +121,48 @@ int main(int argc, char *argv[]) {
 
     sleep_ms(500);
 
+    // L'interface reprend la main apres un ecran d'erreur transitoire.
+    edel_mqtt_set_ui_restore_cb(nav_redraw);
+
+    // --- appairage -------------------------------------------------------------
+    //
+    // Ne fait rien si une identite valide est deja en flash, ce qui est le cas nominal a
+    // chaque demarrage. Sinon le boitier demande un code, l'affiche, et interroge le
+    // serveur jusqu'a ce qu'un operateur l'ait saisi dans son portail.
+    switch (enrollment_run(afficher_code_appairage)) {
+        case ENROLLMENT_REUSSI:
+            afficher_appaire();
+            edel_mqtt_start();
+            break;
+        case ENROLLMENT_DEJA_APPAIRE:
+            edel_mqtt_start();
+            break;
+        case ENROLLMENT_ECHEC:
+            // Pas de mode degrade : sans identite, le boitier ne peut rien verifier. On le
+            // dit a l'ecran plutot que de laisser une dalle figee sur l'ecran de chargement.
+            printf("[main] appairage impossible - le boitier reste inutilisable\n");
+            epd_fb_clear(true);
+            epd_fb_write_big_centered(130, "APPAIRAGE IMPOSSIBLE", 3);
+            epd_fb_write_big_centered(180, "REDEMARRER LE BOITIER", 2);
+            epd_display_update_full();
+            break;
+    }
+
     // --- END OF INIT PART
 
-    display_menu(true, 4, "check", "settings", "post token", "mcquenty");
-    printf("\n\n\n======== MENU ==========\n\n");
-    printf("1) check\n");
-    printf("2) settings\n");
-    printf("\n\n\n========================\n\n");
+    // Le menu est dessine par nav_redraw() et par personne d'autre.
+    //
+    // Il etait auparavant ecrit une SECONDE fois ici, en dur, avec quatre entrees dont
+    // deux qui n'existaient plus dans nav.c. L'ecran affichait donc un menu different de
+    // celui auquel les touches repondaient - et supprimer une entree dans nav.c laissait
+    // celle de main.c intacte.
+    nav_redraw();
 
     add_repeating_timer_ms(-5000, periodic_check_callback, NULL, &timer);
     
     while (running) {
         poll_usb_nav_key();
+        edel_mqtt_poll();   // reconnecte le broker si la connexion est tombee
         sleep_ms(10);
     }
 
