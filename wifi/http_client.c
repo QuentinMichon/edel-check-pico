@@ -16,6 +16,7 @@
 #include "lwip/altcp_tls.h"
 #include "mbedtls/base64.h"
 #include "http_client.h"
+#include "ca_letsencrypt.h"
 
 #define POLL_TIME_S 10
 
@@ -381,9 +382,15 @@ static http_client_state_t *http_client_alloc(bool use_tls, uint16_t *port,
     }
 
     if (use_tls) {
-        // NULL, 0 = pas de certificat client, pas de CA custom (verification optionnelle,
-        // comme discute precedemment).
-        state->tls_config = altcp_tls_create_config_client(NULL, 0);
+        // L'autorite est OBLIGATOIRE ici, pas facultative : lwipopts.h impose
+        // ALTCP_MBEDTLS_AUTHMODE = MBEDTLS_SSL_VERIFY_REQUIRED a TOUTES les connexions
+        // TLS. Avec NULL, la verification ne peut pas aboutir et la poignee de main est
+        // interrompue -- lwIP rend ERR_CLSD (-15), sans rien dire de plus.
+        //
+        // Combine a mbedtls_ssl_set_hostname() appele plus bas, on obtient une
+        // verification complete : chaine ET nom d'hote.
+        state->tls_config = altcp_tls_create_config_client(
+                (const u8_t *) EDEL_CA_LETSENCRYPT, EDEL_CA_LETSENCRYPT_LEN);
         if (!state->tls_config) {
             printf("[http] echec de creation de la config tls\n");
             free(state);

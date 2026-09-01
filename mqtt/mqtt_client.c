@@ -20,6 +20,7 @@
 #include "image/image_rx.h"
 #include "screen/epd_driver.h"
 #include "screen/epd_text.h"
+#include "power/power.h"
 
 #ifndef EDEL_MQTT_PORT_DEFAUT
 #define EDEL_MQTT_PORT_DEFAUT 8883
@@ -44,11 +45,46 @@ static char presence[128];
 static bool     demarre;
 static uint32_t derniere_tentative_ms;
 
-// Ecran d'erreur transitoire : au bout de ce delai, l'interface reprend la main.
-// 4 s - le temps de lire trois mots, sans laisser le comptoir devant un ecran mort.
-#define ERREUR_AFFICHAGE_MS 4000
-static uint32_t erreur_affichee_ms;
+// Ecrans transitoires : au bout de leur delai, l'interface reprend la main.
+//
+// Deux cas, deux durees. Une erreur tient en trois mots et se lit vite ; un verdict est
+// montre a une personne qui vient de scanner, et le lui retirer au bout de quatre secondes
+// serait brusque. Le QR, lui, n'a PAS de delai : c'est le serveur qui borne l'attente a
+// 120 s et pousse ensuite un verdict « Delai depasse », lequel arme ce chronometre.
+#define ERREUR_AFFICHAGE_MS  4000
+#define VERDICT_AFFICHAGE_MS 8000
+
+// Instant d'armement (0 = desarme) et delai a respecter.
+static uint32_t retour_menu_ms;
+static uint32_t retour_menu_delai_ms;
 static void (*ui_restore_cb)(void);
+
+// Une configuration vient d'etre adoptee : le menu affiche est perime.
+//
+// Un DRAPEAU, pas un appel direct. profiles_handle_cfg() tourne dans le rappel de lwIP, et
+// redessiner sur place bloquerait ce fil 638 ms - le keep-alive MQTT expirerait et le
+// boitier se deconnecterait a chaque changement de configuration. La boucle principale
+// s'en charge, comme pour les images.
+static volatile bool cfg_a_redessiner;
+
+// Un QR est affiche et on attend le verdict. Redessiner le menu maintenant l'effacerait
+// sous les yeux du client en train de scanner. On attend : le verdict rendra la main au
+// menu de toute facon, et le menu redessine sera le bon.
+static volatile bool qr_affiche;
+
+// Les images annoncees par les metadonnees recues sur `cmd` AVANT leurs fragments.
+// 0 = aucune.
+//
+// On retient l'identifiant plutot qu'un simple drapeau : deux images peuvent se succeder
+// vite - le QR puis le verdict - et un booleen consomme au mauvais moment renverrait au
+// menu un boitier qui vient d'afficher un QR, juste avant que le client ne le scanne.
+static volatile uint32_t img_id_verdict;
+static volatile uint32_t img_id_qr;
+
+static void armer_retour_menu(uint32_t delai_ms) {
+    retour_menu_ms = to_ms_since_boot(get_absolute_time());
+    retour_menu_delai_ms = delai_ms;
+}
 
 // ---------------------------------------------------------------------------
 // Reception
@@ -133,7 +169,19 @@ static void sur_topic_entrant(void *arg, const char *topic, u32_t tot_len) {
 // faut pour reassembler. Seule `revoked` demande une action.
 static void traiter_commande(const char *json, size_t len) {
     char *type = NULL, *raison = NULL;
-    json_scanf(json, (int) len, "{type: %Q, reason: %Q}", &type, &raison);
+    int img_id = 0;
+    json_scanf(json, (int) len, "{type: %Q, reason: %Q, img_id: %d}", &type, &raison, &img_id);
+
+    // Un verdict doit rendre la main au menu une fois lu ; un QR doit rester affiche le
+    // temps que le client le scanne. Seules ces metadonnees permettent de les distinguer -
+    // l'en-tete binaire des fragments ne porte que de quoi reassembler.
+    if (type != NULL && img_id > 0) {
+        if (strcmp(type, "result") == 0) {
+            img_id_verdict = (uint32_t) img_id;
+        } else if (strcmp(type, "session_ready") == 0) {
+            img_id_qr = (uint32_t) img_id;
+        }
+    }
 
     if (type != NULL && strcmp(type, "revoked") == 0) {
         printf("[mqtt] REVOCATION recue (%s) - effacement de l'identite\n",
@@ -205,7 +253,13 @@ static void sur_donnees(void *arg, const u8_t *data, u16_t len, u8_t flags) {
             } else {
                 json_buf[json_len] = '\0';
                 if (topic_courant == T_CFG) {
-                    profiles_handle_cfg(json_buf, json_len);
+                    // Le menu ne se redessinait pas : l'operateur assignait un profil depuis
+                    // le portail, le boitier l'adoptait aussitot, et l'ecran continuait
+                    // d'afficher l'ancienne liste jusqu'a ce que quelqu'un appuie sur une
+                    // touche. Vu du comptoir, on croit a une minute de latence reseau.
+                    if (profiles_handle_cfg(json_buf, json_len)) {
+                        cfg_a_redessiner = true;
+                    }
                 } else {
                     traiter_commande(json_buf, json_len);
                 }
@@ -302,7 +356,18 @@ static void connecter(void) {
     ci.client_id   = client_id;          // dev-{deviceId}, impose par le serveur
     ci.client_user = cfg->device_id;
     ci.client_pass = cfg->device_secret;
-    ci.keep_alive  = 60;
+    // 15 s et non 60.
+    //
+    // Le keep-alive ne sert pas qu'a detecter une connexion morte : c'est le SEUL trafic
+    // montant d'un boitier au repos, et c'est lui qui maintient ouverte la traduction
+    // d'adresse du routeur. Mesure sur un partage de connexion telephone : une
+    // configuration poussee vers un boitier inactif mettait environ soixante secondes a
+    // arriver - exactement l'ancien intervalle - alors qu'une image publiee juste apres un
+    // message montant du boitier arrivait en cinquante millisecondes. Le passage etait
+    // referme, et seul le PINGREQ suivant le rouvrait.
+    //
+    // Le cout est negligeable : deux octets toutes les quinze secondes.
+    ci.keep_alive  = 15;
     ci.will_topic  = topic_status;
     ci.will_msg    = TESTAMENT;
     ci.will_qos    = 1;
@@ -343,18 +408,32 @@ bool edel_mqtt_start(void) {
     // deux appareils portant la meme identite - deux `online` avec des valeurs differentes
     // sans `offline` intercale signalent un clone.
     snprintf(presence, sizeof(presence),
-             "{\"state\":\"online\",\"fw\":\"1.0.6\",\"batt\":100,\"boot_nonce\":\"%08lx\"}",
+             // `batt` etait ecrit EN DUR a 100 : le boitier annoncait une batterie pleine
+             // qu'il n'avait jamais mesuree. Il la lit maintenant sur VSYS.
+             "{\"state\":\"online\",\"fw\":\"1.0.6\",\"batt\":%d,\"boot_nonce\":\"%08lx\"}",
+             power_niveau_pourcent(),
              (unsigned long) to_us_since_boot(get_absolute_time()));
 
-    // ⚠ Certificat NON verifie tant que la CA n'est pas epinglee.
+    // Certificat du broker VERIFIE contre l'autorite recue a l'appairage.
     //
-    // cfg->ca_cert_pem contient pourtant la bonne autorite, recue a l'appairage. Deux
-    // choses manquent avant de pouvoir s'en servir : le certificat du broker de
-    // developpement porte CN=localhost et ne couvre pas l'adresse reelle (son
-    // subjectAltName est ecrit en dur dans edelcheck/scripts/dev-up.sh), et il faut
-    // epingler la CA RACINE, jamais la feuille - sinon un renouvellement de certificat
-    // fait tomber tout le parc, sans recours apres flashage.
-    tls_cfg = altcp_tls_create_config_client(NULL, 0);
+    // C'est la CA RACINE qui est epinglee, jamais la feuille : epingler le certificat du
+    // broker rendrait tout renouvellement impossible sans reflasher le parc entier.
+    //
+    // La longueur INCLUT le zero terminal. mbedtls_x509_crt_parse distingue le PEM du DER a
+    // ce detail pres : sans lui, il tente une lecture binaire, echoue, et la connexion tombe
+    // avec une erreur qui ne parle pas du certificat.
+    //
+    // Le certificat du broker doit couvrir l'adresse que le boitier compose reellement. Le
+    // subjectAltName se regle par MQTT_EXTRA_SAN dans edelcheck/scripts/dev-up.sh ; une
+    // adresse absente donne un refus de connexion, muet cote serveur.
+    size_t ca_len = strlen(cfg->ca_cert_pem);
+    if (ca_len == 0) {
+        printf("[mqtt] aucune autorite en flash - connexion refusee\n");
+        return false;
+    }
+    printf("[tls] verification du certificat activee (autorite de %u octets)\n",
+           (unsigned) ca_len);
+    tls_cfg = altcp_tls_create_config_client((const u8_t *) cfg->ca_cert_pem, ca_len + 1);
     client  = mqtt_client_new();
     if (tls_cfg == NULL || client == NULL) {
         printf("[mqtt] allocation impossible\n");
@@ -380,6 +459,19 @@ void edel_mqtt_poll(void) {
         derniere_tranche_ms = 0;
         epd_display_update_partial();
         printf("[img] affichee\n");
+
+        uint32_t affichee = image_rx_current_id();
+
+        // Sans ceci, la dalle restait sur le verdict jusqu'a la prochaine touche : le
+        // comptoir se retrouvait devant un ecran qui n'indique plus quoi appuyer.
+        if (img_id_verdict != 0 && affichee == img_id_verdict) {
+            img_id_verdict = 0;
+            qr_affiche = false;
+            armer_retour_menu(VERDICT_AFFICHAGE_MS);
+        } else if (img_id_qr != 0 && affichee == img_id_qr) {
+            img_id_qr = 0;
+            qr_affiche = true;
+        }
     }
 
     // Abandon d'une image restee incomplete.
@@ -411,14 +503,25 @@ void edel_mqtt_poll(void) {
         epd_fb_write_big_centered(112, "IMAGE INCOMPLETE", 3);
         epd_fb_write_big_centered(168, "RELANCER LA VERIFICATION", 2);
         epd_display_update_partial();
-        erreur_affichee_ms = to_ms_since_boot(get_absolute_time());
+        armer_retour_menu(ERREUR_AFFICHAGE_MS);
+    }
+
+    // Adopter une configuration change le menu : il faut le redessiner. Mais pas tant qu'un
+    // ecran transitoire ou un QR occupe la dalle - dans ces deux cas le retour au menu est
+    // deja programme, et il affichera la nouvelle liste.
+    if (cfg_a_redessiner && !qr_affiche && retour_menu_ms == 0) {
+        cfg_a_redessiner = false;
+        if (ui_restore_cb != NULL) {
+            printf("[cfg] menu redessine\n");
+            ui_restore_cb();
+        }
     }
 
     // Rendre la main a l'interface : le message a ete lu, on reaffiche le menu pour que
     // l'operateur voie de nouveau quoi appuyer.
-    if (erreur_affichee_ms != 0
-        && to_ms_since_boot(get_absolute_time()) - erreur_affichee_ms > ERREUR_AFFICHAGE_MS) {
-        erreur_affichee_ms = 0;
+    if (retour_menu_ms != 0
+        && to_ms_since_boot(get_absolute_time()) - retour_menu_ms > retour_menu_delai_ms) {
+        retour_menu_ms = 0;
         if (ui_restore_cb != NULL) {
             ui_restore_cb();
         }

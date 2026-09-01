@@ -17,6 +17,17 @@ static nav_page_t state = NAV_PAGE_MENU;
 
 bool running = true;
 
+// Le tout premier dessin apres la mise sous tension doit etre un full.
+//
+// Un rafraichissement partiel est un DIFF entre le plan 0x24 (nouvelle image) et le plan
+// 0x26 (image affichee). Au demarrage, 0x26 contient encore l'ecran d'appairage ou de
+// chargement, et c'est le premier diff que la dalle encaisse : l'image sort incomplete.
+// Les suivants partent d'un 0x26 resynchronise en fin de partiel, donc sains.
+//
+// Le symptome etait exactement celui-la : le premier changement de configuration semblait
+// ignore, tous les suivants passaient sans accroc. Coute 2,3 s une seule fois.
+static bool premier_dessin = true;
+
 static void go_to_menu(void) {
 
     printf("\n\n\n======== MENU ==========\n\n");
@@ -25,7 +36,8 @@ static void go_to_menu(void) {
     printf("x) exit\n");
     printf("\n\n\n========================\n\n");
 
-    display_menu(false, 2, "check", "settings");
+    display_menu(premier_dessin, 2, "check", "settings");
+    premier_dessin = false;
 
     state = NAV_PAGE_MENU;
 }
