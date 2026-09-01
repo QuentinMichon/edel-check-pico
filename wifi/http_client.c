@@ -628,28 +628,3 @@ bool http_post(const char *host, uint16_t port, const char *path, bool use_tls,
  *      --- AUTH BASIC --------------------
  */
 
-// construit la valeur base64 de "username:password" dans out (NUL-terminee), utilisable par
-// l'appelant pour composer un entete "Authorization: Basic <out>\r\n" a passer en extra_headers
-// a http_get/http_post. retourne false si un des buffers est trop petit.
-bool http_client_basic_auth(const char *username, const char *password, char *out, size_t out_len) {
-    char credentials[128];
-    int n = snprintf(credentials, sizeof(credentials), "%s:%s",
-                      username ? username : "", password ? password : "");
-    if (n < 0 || (size_t) n >= sizeof(credentials)) {
-        return false;
-    }
-
-    if (out_len == 0) {
-        return false;
-    }
-
-    size_t olen = 0;
-    // out_len - 1 : on reserve toujours un octet pour le NUL final ajoute ci-dessous.
-    int rc = mbedtls_base64_encode((unsigned char *) out, out_len - 1, &olen,
-                                    (const unsigned char *) credentials, (size_t) n);
-    if (rc != 0) {
-        return false;
-    }
-    out[olen] = '\0';
-    return true;
-}

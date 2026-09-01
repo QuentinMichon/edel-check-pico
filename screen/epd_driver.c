@@ -62,7 +62,8 @@ void epd_send_data(const uint8_t *data) {
 /*
  *      EPD BUSY WAIT
  */
-// TODO CLEAN DEBUG - enlever printf + var
+// Les deux printf restent volontairement. epd_wait_busy() rend true meme si BUSY n'est
+// jamais monte : sans eux, rien ne distingue un ecran qui s'est rafraichi d'un ecran mort.
 bool epd_wait_busy(uint32_t timeout_ms) {
     absolute_time_t start = get_absolute_time();
 

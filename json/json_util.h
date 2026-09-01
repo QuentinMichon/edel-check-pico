@@ -13,8 +13,6 @@
 #include "pico/stdlib.h"
 #include "screen/epd_driver.h"
 
-void handle_token(const char *body);
 
-void print_qr_code(const char *body, int x, int y, int scale);
 
 #endif //EDEL_CHECK_PICO_JSON_UTIL_H
