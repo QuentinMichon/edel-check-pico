@@ -92,4 +92,26 @@
 // accelere significativement mbedtls (optimisations NIST)
 #define MBEDTLS_ECP_NIST_OPTIM
 
+
+// Verifier la CHAINE sans verifier le NOM. Compromis assume, a lire en entier.
+//
+// mbedTLS 3.6 refuse par principe qu'un client verifie un certificat sans avoir appele
+// mbedtls_ssl_set_hostname(). Or lwIP ne l'appelle jamais : son portage altcp_tls ne
+// l'expose meme pas. Sans cette option, la poignee de main echoue AVANT toute verification,
+// et le boitier ne se connecte plus du tout - constate sur la carte.
+//
+// CE QUI EST PROTEGE. Le serveur doit presenter un certificat signe par l'autorite recue a
+// l'appairage. Un intermediaire qui presenterait le sien, signe par une autorite quelconque,
+// est refuse. C'est la menace reelle sur un reseau de comptoir, et elle est fermee : mesure
+// par mutation, avec un certificat pirate emis pour les memes adresses.
+//
+// CE QUI NE L'EST PAS. L'identite du serveur. Tout certificat signe par NOTRE autorite est
+// accepte, quelle que soit l'adresse qu'il porte. Le risque residuel suppose donc qu'un
+// attaquant obtienne une signature de notre propre autorite - dont la cle ne quitte pas le
+// poste de developpement.
+//
+// POUR ALLER PLUS LOIN. Il faudrait poser le nom d'hote sur le contexte mbedTLS avant la
+// poignee de main, ce que le client MQTT de lwIP ne permet pas sans le modifier.
+#define MBEDTLS_SSL_CLI_ALLOW_WEAK_CERTIFICATE_VERIFICATION_WITHOUT_HOSTNAME
+
 #endif

@@ -100,4 +100,17 @@
 #define SLIP_DEBUG                  LWIP_DBG_OFF
 #define DHCP_DEBUG                  LWIP_DBG_OFF
 
+
+// Verification STRICTE du certificat du serveur.
+//
+// lwIP regle ce mode sur MBEDTLS_SSL_VERIFY_OPTIONAL par defaut (altcp_tls_mbedtls_opts.h,
+// ligne 106). « Optional » ne veut pas dire « au choix » : mbedTLS verifie, CONSTATE l'echec,
+// et poursuit quand meme la poignee de main. La verification a lieu, son resultat est ignore.
+//
+// Fournir l'autorite a altcp_tls_create_config_client() ne change donc rien tant que ce mode
+// n'est pas eleve. Mesure sur la carte : avec la seule autorite fournie, le boitier a accepte
+// un certificat signe par une autorite pirate, emis pour les memes adresses. Avec REQUIRED,
+// il le refuse.
+#define ALTCP_MBEDTLS_AUTHMODE          MBEDTLS_SSL_VERIFY_REQUIRED
+
 #endif
