@@ -52,6 +52,7 @@ add_executable(${PROJECT_NAME} main.c
         json/json_util.c
         wifi/wifi_setup.c
         wifi/http_client.c
+        wifi/ca_letsencrypt.c
         navigation/nav.c
         gpio/gpio_driver.c
         screen/epd_driver.c
@@ -62,11 +63,13 @@ add_executable(${PROJECT_NAME} main.c
         profiles/profiles.c
         session/session.c
         image/image_rx.c
+        power/power.c
 )
 
 target_link_libraries(${PROJECT_NAME}
         pico_stdlib
         hardware_spi
+        hardware_adc
         hardware_flash
         hardware_sync
         hardware_watchdog
@@ -102,7 +105,14 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
         PRId64=\"lld\"
         PRIu64=\"llu\"
 
-        PICO_STDIO_USB_CONNECT_WAIT_TIMEOUT_MS=-1
+        # Attente d'un terminal serie au demarrage, en millisecondes.
+        #
+        # -1 = attendre indefiniment. C'etait pratique pour ne rien rater des traces de
+        # demarrage, mais ca rend le boitier INUTILISABLE hors du bureau : branche sur une
+        # prise, sans ordinateur, il reste fige a stdio_init_all() et l'ecran ne s'allume
+        # jamais. Un delai fini laisse les traces lisibles quand un terminal est ouvert, et
+        # laisse demarrer quand il n'y en a pas.
+        PICO_STDIO_USB_CONNECT_WAIT_TIMEOUT_MS=3000
         WIFI_SSID=\"${WIFI_SSID}\"
         WIFI_PASSWORD=\"${WIFI_PASSWORD}\"
 
