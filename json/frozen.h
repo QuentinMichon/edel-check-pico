@@ -82,15 +82,15 @@ struct json_token {
  * the sequence of callback invocations will be as follows:
  *
  * - type: JSON_TYPE_OBJECT_START, name: NULL, path: "", value: NULL
- * - type: JSON_TYPE_NUMBER, name: "foo", path: ".foo", value: "123"
- * - type: JSON_TYPE_ARRAY_START,  name: "bar", path: ".bar", value: NULL
- * - type: JSON_TYPE_NUMBER, name: "0", path: ".bar[0]", value: "1"
- * - type: JSON_TYPE_NUMBER, name: "1", path: ".bar[1]", value: "2"
- * - type: JSON_TYPE_OBJECT_START, name: "2", path: ".bar[2]", value: NULL
- * - type: JSON_TYPE_TRUE, name: "baz", path: ".bar[2].baz", value: "true"
- * - type: JSON_TYPE_OBJECT_END, name: NULL, path: ".bar[2]", value: "{ \"baz\":
+ * - type: JSON_TYPE_NUMBER, name: "foo", path:".foo", value: "123"
+ * - type: JSON_TYPE_ARRAY_START,  name: "bar", path:".bar", value: NULL
+ * - type: JSON_TYPE_NUMBER, name: "0", path:".bar[0]", value: "1"
+ * - type: JSON_TYPE_NUMBER, name: "1", path:".bar[1]", value: "2"
+ * - type: JSON_TYPE_OBJECT_START, name: "2", path:".bar[2]", value: NULL
+ * - type: JSON_TYPE_TRUE, name: "baz", path:".bar[2].baz", value: "true"
+ * - type: JSON_TYPE_OBJECT_END, name: NULL, path:".bar[2]", value: "{ \"baz\":
  *true }"
- * - type: JSON_TYPE_ARRAY_END, name: NULL, path: ".bar", value: "[ 1, 2, {
+ * - type: JSON_TYPE_ARRAY_END, name: NULL, path:".bar", value: "[ 1, 2, {
  *\"baz\": true } ]"
  * - type: JSON_TYPE_OBJECT_END, name: NULL, path: "", value: "{ \"foo\": 123,
  *\"bar\": [ 1, 2, { \"baz\": true } ] }"
@@ -311,7 +311,7 @@ int json_prettify_file(const char *file_name);
  * ```c
  * void *h = NULL;
  * struct json_token key, val;
- * while ((h = json_next_key(s, len, h, ".foo", &key, &val)) != NULL) {
+ * while ((h = json_next_key(s, len, h,".foo", &key, &val)) != NULL) {
  *   printf("[%.*s] -> [%.*s]\n", key.len, key.ptr, val.len, val.ptr);
  * }
  * ```

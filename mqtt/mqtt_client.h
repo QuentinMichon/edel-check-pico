@@ -29,7 +29,7 @@ bool edel_mqtt_publish_evt(const char *json);
 // Rappel invoque quand un ecran d'erreur transitoire a fini son temps d'affichage, pour
 // que l'interface reprenne la main.
 //
-// Sans lui, un abandon d'image laisse l'operateur devant un message qui dit " reessayer "
+// Sans lui, un abandon d'image laisse l'operateur devant un message qui dit "reessayer"
 // sans dire comment : le menu des profils a ete efface par le message lui-meme. Le boitier
 // a l'air plante alors qu'il attend simplement un appui.
 void edel_mqtt_set_ui_restore_cb(void (*cb)(void));

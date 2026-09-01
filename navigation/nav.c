@@ -157,7 +157,7 @@ void poll_usb_nav_key(void) {
                 case '1':
                 case '2':
                 case '3':
-                    // Le boitier publie " le profil N a ete demande " et rend la main.
+                    // Le boitier publie "le profil N a ete demande" et rend la main.
                     // Tout le reste - requete de presentation, rendu du QR, verdict -
                     // se passe dans device-service, et redescend en images.
                     session_open(c - '1');

@@ -1,6 +1,6 @@
-// Genere par epd_paint.html — image 46x22, 1 bit/pixel
+// Genere par epd_paint.html - image 46x22, 1 bit/pixel
 // bit 1 = blanc, bit 0 = noir, MSB = pixel de gauche, 6 octet(s)/ligne
-// NB : largeur arrondie a 48 px cote RAM (bourrage blanc) —
+// NB : largeur arrondie a 48 px cote RAM (bourrage blanc) -
 //      la fenetre X du SSD1683 a une granularite de 8 pixels.
 #pragma once
 #include <stdint.h>

@@ -7,7 +7,7 @@
 // Les profils de verification assignes a ce boitier, tels que le cloud les envoie sur
 // dev/{id}/cfg.
 //
-// Un profil, c'est ce qu'un bouton declenche : " Controle 18 ans ", " Identite complete ".
+// Un profil, c'est ce qu'un bouton declenche : "Controle 18 ans", "Identite complete".
 // Le boitier n'apprend PAS ce qui est verifie - ni quels attributs sont demandes, ni a
 // quel emetteur on fait confiance. Seulement un identifiant a renvoyer et un libelle a
 // afficher. La requete de presentation est construite cote serveur, et c'est ce qui permet

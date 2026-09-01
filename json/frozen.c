@@ -576,7 +576,7 @@ int json_vprintf(struct json_out *out, const char *fmt, va_list xap) {
 
       if (fmt[1] == 'l' && fmt[2] == 'l' && (fmt[3] == 'd' || fmt[3] == 'u')) {
         int64_t val = va_arg(ap, int64_t);
-        const char *fmt2 = fmt[3] == 'u' ? "%" UINT64_FMT : "%" INT64_FMT;
+        const char *fmt2 = fmt[3] == 'u' ? "%"UINT64_FMT :"%" INT64_FMT;
         snprintf(buf, sizeof(buf), fmt2, val);
         len += out->printer(out, buf, strlen(buf));
         skip += 2;
@@ -590,7 +590,7 @@ int json_vprintf(struct json_out *out, const char *fmt, va_list xap) {
         len += f(out, &ap);
       } else if (fmt[1] == 'B') {
         int val = va_arg(ap, int);
-        const char *str = val ? "true" : "false";
+        const char *str = val ? "true":"false";
         len += out->printer(out, str, strlen(str));
       } else if (fmt[1] == 'H') {
 #if JSON_ENABLE_HEX
@@ -1094,7 +1094,7 @@ int json_vscanf(const char *s, int len, const char *fmt, va_list ap) {
           i += 2;
           break;
         default: {
-          const char *delims = ", \t\r\n]}";
+          const char *delims =", \t\r\n]}";
           int conv_len = strcspn(fmt + i + 1, delims) + 1;
           memcpy(fmtbuf, fmt + i, conv_len);
           fmtbuf[conv_len] = '\0';
@@ -1107,7 +1107,7 @@ int json_vscanf(const char *s, int len, const char *fmt, va_list ap) {
       json_walk(s, len, json_scanf_cb, &info);
     } else if (json_isalpha(fmt[i]) || json_get_utf8_char_len(fmt[i]) > 1) {
       char *pe;
-      const char *delims = ": \r\n\t";
+      const char *delims =": \r\n\t";
       int key_len = strcspn(&fmt[i], delims);
       if ((p = strrchr(path, '.')) != NULL) p[1] = '\0';
       pe = path + strlen(path);
@@ -1281,7 +1281,7 @@ int json_vsetf(const char *s, int len, struct json_out *out,
     /* Close brackets/braces of the added missing keys */
     for (; off > data.matched; off--) {
       int ch = json_path[off];
-      const char *p = ch == '.' ? "}" : ch == '[' ? "]" : "";
+      const char *p = ch == '.' ? "}": ch == '[' ?"]":"";
       json_printf(out, "%s", p);
     }
 

@@ -6,7 +6,7 @@
 #   ./flash.sh --log        televerse puis ouvre la console serie
 #
 # Identifiants du boitier : lus dans le fichier JSON produit par l'appairage, dont le
-# chemin est donne par CREDS. Ils ne sont JAMAIS ecrits dans un fichier de ce depot —
+# chemin est donne par CREDS. Ils ne sont JAMAIS ecrits dans un fichier de ce depot -
 # ils finissent uniquement dans le binaire.
 #
 #   CREDS=/chemin/device-creds.json ./flash.sh
@@ -16,7 +16,7 @@
 #
 #   ⚠ LE PICO ET LE PC DOIVENT ETRE SUR LE MEME RESEAU.
 #     Le Pico 2 W est 2,4 GHz uniquement. Si le Pico est sur un hotspot telephone, le
-#     PC doit rejoindre CE MEME hotspot — sinon l'IP detectee ci-dessous n'est pas
+#     PC doit rejoindre CE MEME hotspot - sinon l'IP detectee ci-dessous n'est pas
 #     joignable depuis le boitier, et la connexion expire sans message clair.
 #     Le script verifie ce point avant de compiler.
 

@@ -50,7 +50,7 @@ static uint32_t derniere_tentative_ms;
 // Deux cas, deux durees. Une erreur tient en trois mots et se lit vite ; un verdict est
 // montre a une personne qui vient de scanner, et le lui retirer au bout de quatre secondes
 // serait brusque. Le QR, lui, n'a PAS de delai : c'est le serveur qui borne l'attente a
-// 120 s et pousse ensuite un verdict « Delai depasse », lequel arme ce chronometre.
+// 120 s et pousse ensuite un verdict "Delai depasse", lequel arme ce chronometre.
 #define ERREUR_AFFICHAGE_MS  4000
 #define VERDICT_AFFICHAGE_MS 8000
 
@@ -118,7 +118,7 @@ static volatile uint32_t derniere_tranche_ms;
 //
 // Meme raison que pour l'en-tete d'image, avec une consequence plus grave : un JSON coupe
 // en deux ne produit pas une erreur, il produit un objet incomplet que l'analyseur rejette
-// en silence. Le symptome serait " le boitier ne recoit jamais sa configuration ", alors
+// en silence. Le symptome serait "le boitier ne recoit jamais sa configuration", alors
 // que le message arrive parfaitement.
 //
 // 2 Ko : huit profils font environ 1 Ko, l'en-tete quelques dizaines d'octets.
@@ -129,7 +129,7 @@ static bool   json_tronque;
 
 static void sur_abonnement(void *arg, err_t err) {
     // L'ACL du serveur refuse tout joker et repond topic par topic : on trace chaque
-    // abonnement separement, sinon un seul refus ressemble a " MQTT ne marche pas ".
+    // abonnement separement, sinon un seul refus ressemble a "MQTT ne marche pas".
     printf("[mqtt] abonnement %-3s : %s\n", (const char *) arg,
            err == ERR_OK ? "accorde" : "REFUSE");
 }
@@ -441,7 +441,7 @@ bool edel_mqtt_start(void) {
     }
 
     // A poser AVANT la connexion : sans ces rappels, lwIP jette chaque message entrant en
-    // silence, et le symptome ressemble a " le cloud ne repond jamais ".
+    // silence, et le symptome ressemble a "le cloud ne repond jamais".
     mqtt_set_inpub_callback(client, sur_topic_entrant, sur_donnees, NULL);
 
     demarre = true;

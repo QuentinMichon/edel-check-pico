@@ -193,7 +193,7 @@ void epd_init(void) {
 
     // Note : pas de chargement de LUT séparé ici. Le driver officiel
     // Adafruit n'en fait pas : la séquence 0x22 = 0xF7 envoyée au moment
-    // du refresh inclut déjà "load temperature" et "load LUT" depuis
+    // du refresh inclut déjà "load temperature"et"load LUT" depuis
     // l'OTP, juste avant le driving du panneau.
 
     printf("[screen] e-paper driver (epd) ready!\n");
@@ -248,7 +248,7 @@ void epd_fb_fill_rect(int x, int y, int w, int h, bool white) {
 //   w   : largeur en PIXELS (la constante <NOM>_W du .h généré)
 //   h   : hauteur en pixels (la constante <NOM>_H)
 // Le stride source est recalculé ici : chaque ligne de l'image occupe
-// (w + 7) / 8 octets, alors qu'une ligne du framebuffer en fait 50 — c'est
+// (w + 7) / 8 octets, alors qu'une ligne du framebuffer en fait 50 - c'est
 // précisément ce désalignement qui interdit un memcpy direct.
 // Les pixels qui débordent de l'écran sont ignorés (le clipping est déjà
 // assuré par les bornes de epd_fb_set_pixel).
@@ -403,7 +403,7 @@ void epd_write_plane(uint8_t ram_cmd) {
     // Repositionne le "curseur" d'écriture au début de la fenêtre RAM
     // (compteur partagé par les deux plans). Indispensable avant CHAQUE
     // envoi : le compteur reste là où la dernière écriture s'est arrêtée
-    // (l'analogie POSIX : un write() sans lseek() préalable — on écrirait
+    // (l'analogie POSIX : un write() sans lseek() préalable - on écrirait
     // depuis une position résiduelle et une partie de l'écran garderait
     // son ancien contenu).
     cmd = 0x4E;
@@ -431,7 +431,7 @@ void epd_write_plane(uint8_t ram_cmd) {
  *      flashs noir/blanc, ~2.3 s). C'est le refresh de référence : il
  *      efface tout ghosting accumulé. On écrit l'image dans les DEUX
  *      plans : 0x24 pour l'affichage, 0x26 pour que le plan "ancien"
- *      reflète l'écran réel — condition de départ saine du prochain
+ *      reflète l'écran réel - condition de départ saine du prochain
  *      refresh partiel.
  */
 void epd_display_update_full(void) {
@@ -442,7 +442,7 @@ void epd_display_update_full(void) {
     epd_write_plane(0x26);
 
     // Display Update Control 1 : 0x40 = bypass du plan 0x26 ("RED") avec
-    // la valeur 0. En full refresh, seul le plan 0x24 compte — le driver
+    // la valeur 0. En full refresh, seul le plan 0x24 compte - le driver
     // de référence envoie ce réglage avant chaque full.
     cmd = 0x21;
     epd_send_command(&cmd);

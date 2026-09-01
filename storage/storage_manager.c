@@ -213,8 +213,8 @@ bool storage_save_enrollment(const char *device_id, const char *device_secret,
         return false;
     }
 
-    // Relecture depuis la flash, pas depuis g_config : c'est ce qui distingue " ecrit " de
-    // " ecrit et verifie ", et c'est cette distinction qui evite le marquage SUSPECT.
+    // Relecture depuis la flash, pas depuis g_config : c'est ce qui distingue "ecrit" de
+    // "ecrit et verifie", et c'est cette distinction qui evite le marquage SUSPECT.
     static persistent_storage_t verif;
     if (!load_local_storage(&verif)
         || strcmp(verif.device_id, device_id) != 0

@@ -57,10 +57,10 @@ typedef struct {
 // etats de l'automate de dechunking RFC 7230 (Transfer-Encoding: chunked)
 enum http_chunk_state_t {
     HTTP_CHUNK_SIZE = 0,  // lecture des chiffres hexa de la taille du chunk (extensions ignorees)
-    HTTP_CHUNK_SIZE_LF,   // "\r" vu, attente du "\n" terminant la ligne de taille
+    HTTP_CHUNK_SIZE_LF,   // "\r"vu, attente du"\n" terminant la ligne de taille
     HTTP_CHUNK_DATA,      // copie de chunk_remaining octets de donnees dans out_body
     HTTP_CHUNK_DATA_CR,   // donnees terminees, attente du "\r" qui les suit
-    HTTP_CHUNK_DATA_LF,   // "\r" vu, attente du "\n" separant ce chunk du suivant
+    HTTP_CHUNK_DATA_LF,   // "\r"vu, attente du"\n" separant ce chunk du suivant
     HTTP_CHUNK_DONE,      // chunk terminal (taille 0) atteint : corps termine, reste ignore
 };
 
@@ -191,7 +191,7 @@ static void http_client_copy_body_chunked(http_client_state_t *state, const uint
                 } else if (c == '\r') {
                     state->chunk_state = HTTP_CHUNK_SIZE_LF;
                 }
-                // tout autre caractere (ex: extension ";foo=bar") est simplement ignore
+                // tout autre caractere (ex: extension";foo=bar") est simplement ignore
                 i++;
                 break;
             }

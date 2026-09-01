@@ -1,4 +1,4 @@
-// Genere par epd_paint.html — image 400x300, 1 bit/pixel
+// Genere par epd_paint.html - image 400x300, 1 bit/pixel
 // bit 1 = blanc, bit 0 = noir, MSB = pixel de gauche, 50 octet(s)/ligne
 #pragma once
 #include <stdint.h>
