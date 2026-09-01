@@ -42,7 +42,7 @@ target_link_libraries(mqtt_test
         pico_cyw43_arch_lwip_threadsafe_background
         pico_lwip_mbedtls
         pico_mbedtls
-        # Le client MQTT est fourni par lwIP — on n'ecrit pas de protocole, seulement
+        # Le client MQTT est fourni par lwIP - on n'ecrit pas de protocole, seulement
         # la logique. Cf. pico-sdk/src/rp2_common/pico_lwip/CMakeLists.txt:262
         pico_lwip_mqtt
 )
@@ -68,7 +68,7 @@ target_compile_definitions(mqtt_test PRIVATE
         #   Peer signature type              -> RSA-PSS   (d'ou PKCS1_V21)
         #
         # Ajoute ici plutot que dans config/mbedtls_config.h, qui appartient au
-        # firmware principal — c'est une correction a porter la-bas, dans sa propre
+        # firmware principal - c'est une correction a porter la-bas, dans sa propre
         # branche, apres validation par ce banc.
         MBEDTLS_KEY_EXCHANGE_ECDHE_RSA_ENABLED
         MBEDTLS_PKCS1_V21
@@ -80,7 +80,7 @@ target_compile_definitions(mqtt_test PRIVATE
         # lwIP dimensionne ce pool par une formule (opt.h:519) qui ne compte que les
         # modules du COEUR : TCP + ARP + 2xDHCP + ACD + DNS. Les applications n'y
         # figurent pas. Or le client MQTT arme un timer cyclique a la connexion
-        # (mqtt.c:1073) — il demande donc une entree de plus que ce que la formule a
+        # (mqtt.c:1073) - il demande donc une entree de plus que ce que la formule a
         # prevu, et le pool est exactement plein a cet instant.
         #
         # Ce n'est pas propre a ce banc : TOUT ajout de MQTT a cette configuration lwIP
@@ -93,7 +93,7 @@ target_compile_definitions(mqtt_test PRIVATE
         # testament declare au CONNECT, le topic (dev/{uuid}/status = 44 caracteres) et
         # la charge utile de presence. Ca passerait sans doute, mais une publication qui
         # echoue en silence sur une connexion par ailleurs saine est un symptome
-        # penible — autant l'ecarter tout de suite.
+        # penible - autant l'ecarter tout de suite.
         MQTT_OUTPUT_RINGBUF_SIZE=1024
 
         PICO_STDIO_USB_CONNECT_WAIT_TIMEOUT_MS=3000

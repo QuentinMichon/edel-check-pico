@@ -30,7 +30,7 @@ curl -X POST https://auth.edel-id.app/oauth/v2/token \
   -d "grant_type=client_credentials&scope=openid"
 ```
 
-- C'est du OAuth2 standard, géré entièrement par **Zitadel** — l'`api-gateway` n'y participe pas.
+- C'est du OAuth2 standard, géré entièrement par **Zitadel** - l'`api-gateway` n'y participe pas.
 - Le `CLIENT_ID`/`CLIENT_SECRET` sont ceux d'un client Zitadel créé pour l'organisation (onglet
   "API Keys" du portail). `-u` = HTTP Basic auth avec ces identifiants.
 - Réponse : JSON avec `access_token` (un JWT), `expires_in`, etc.
@@ -59,7 +59,7 @@ Un `serverless-pre-function` (même fichier) décode en plus le payload du JWT p
 soit l'org (`client_id` au format `ak-<orgId>-...`), soit `sub`, et l'utilise comme clé de
 rate-limit (`consumer_name`) : **120 req/min par organisation** sur les routes API classiques
 (route `api`), route `api-stream` séparée (sans rate-limit, buffering nginx désactivé via
-`X-Accel-Buffering: no` — indispensable pour que le SSE ne soit pas bufferisé).
+`X-Accel-Buffering: no` - indispensable pour que le SSE ne soit pas bufferisé).
 
 ---
 
@@ -82,15 +82,15 @@ claim inconnue est demandée (`Unknown claims: [...]`).
 
 ### Ce qui se passe côté `api-gateway`
 
-**CH (Swiyu)** — `SwiyuVerificationController.createVerification` :
+**CH (Swiyu)** - `SwiyuVerificationController.createVerification` :
 1. Construit un `SwiyuPresentationRequest` à partir des claims JSONPath.
 2. `POST {verifier.edel-id.app}/management/api/verifications`.
 3. Le verifier répond `{id, verification_url, verification_deeplink}`.
 4. Mappé vers `VerificationResponse(id, verificationUrl, verificationUri=verification_deeplink)`.
 
-**EU (EUDI)** — `EudiVerificationController.transfererRequete` :
+**EU (EUDI)** - `EudiVerificationController.transfererRequete` :
 1. Résout un `intended_use_id` (requis par le verifier EUDI pour son certificat
-   d'enregistrement de relying party — sinon erreur `MissingRegistrationCertificate`). Soit
+   d'enregistrement de relying party - sinon erreur `MissingRegistrationCertificate`). Soit
    fixé par config (`eudi.verifier.intended-use-id`), soit auto-résolu (1er élément de
    `GET /ui/intended-uses`) et mis en cache en mémoire (`cachedIntendedUseId`).
 2. Construit une **DCQL query** (`EudiPresentationRequest`) : credential au format `SD_JWT`,
@@ -106,7 +106,7 @@ claim inconnue est demandée (`Unknown claims: [...]`).
    haip-vp://?client_id=<urlencoded>&request_uri=<urlencoded>&request_uri_method=get
    ```
    (`openid4vp://` si le profil est `OPENID4VP` au lieu de `HAIP`, mais `HAIP` est le seul
-   profil utilisé actuellement — cf. `toPresentationRequest`).
+   profil utilisé actuellement - cf. `toPresentationRequest`).
 6. Mappé vers `VerificationResponse(transactionId, requestUri, qrCodeUri)`.
 
 ### Réponse commune (`VerificationResponse.java`)
@@ -121,7 +121,7 @@ claim inconnue est demandée (`Unknown claims: [...]`).
 ```
 
 `qrCodeBitMap` est généré **automatiquement dans le constructeur** de `VerificationResponse`
-(`this.qrCodeBitMap = QrCodeUtils.encode(verificationUri)`) — c'est l'ajout maison par rapport à
+(`this.qrCodeBitMap = QrCodeUtils.encode(verificationUri)`) - c'est l'ajout maison par rapport à
 l'API EUDI/SWIYU brute, pour éviter au client d'avoir à embarquer une lib QR.
 
 ---
@@ -155,10 +155,10 @@ Paramètres fixes (pas configurables actuellement) :
   longueur du contenu et le niveau `M` (pas fixe : plus l'URI est longue, plus `moduleCount`,
   donc `size`, grandit).
 - Rendu côté client : boucler sur `rows`, pour chaque caractère dessiner un carré (canvas,
-  `<rect>` SVG, ou même une grille CSS) — taille de module en px au choix du client selon la
+  `<rect>` SVG, ou même une grille CSS) - taille de module en px au choix du client selon la
   résolution voulue. Aucune lib QR requise côté client puisque le bitmap est déjà décodé.
 - Alternative : ignorer `qrCodeBitMap` et passer `verificationUri` brut à n'importe quelle lib QR
-  standard (`qrcode.js`, `zxing-js`, etc.) — c'est strictement équivalent, `qrCodeBitMap` est un
+  standard (`qrcode.js`, `zxing-js`, etc.) - c'est strictement équivalent, `qrCodeBitMap` est un
   raccourci fourni en plus, pas une donnée obligatoire.
 
 Fichiers : `QrCode.java` (modèle) + `QrCodeUtils.java` (encodage).
@@ -168,7 +168,7 @@ Fichiers : `QrCode.java` (modèle) + `QrCodeUtils.java` (encodage).
 ## 4. Récupérer le résultat (stream SSE ou blocking)
 
 Deux options exposées, mêmes données sous-jacentes, l'`api-gateway` **poll le verifier backend
-toutes les 2 secondes** (`POLL_INTERVAL_MS = 2000`) dans les deux cas — la différence est juste
+toutes les 2 secondes** (`POLL_INTERVAL_MS = 2000`) dans les deux cas - la différence est juste
 la manière dont la réponse est livrée au client :
 
 ### Option SSE (`/stream`)
@@ -192,7 +192,7 @@ curl -N https://api.edel-id.app/api/verification/ch/<ID>/stream \
 GET /api/verification/{ch,eu}/<ID>/blocking
 ```
 Bloque la requête HTTP jusqu'à complétion (même boucle de poll interne) et renvoie directement
-le JSON — plus simple si le client ne veut pas gérer du SSE. Timeout ~10 min
+le JSON - plus simple si le client ne veut pas gérer du SSE. Timeout ~10 min
 (`spring.mvc.async.request-timeout=10m`).
 
 ### Payload final (`VerificationClaimsOutput.java`)
@@ -211,11 +211,11 @@ le JSON — plus simple si le client ne veut pas gérer du SSE. Timeout ~10 min
 
 **CH (Swiyu)** :
 `GET {verifier}/management/api/verifications/{id}` → champ `state` (`PENDING`/`SUCCESS`). Une
-fois `SUCCESS`, les claims sont déjà en clair dans `wallet_response.credential_subject_data` —
+fois `SUCCESS`, les claims sont déjà en clair dans `wallet_response.credential_subject_data` -
 on filtre juste les champs de métadonnées (`vct`, `iss`, `cnf`, `iat`, `status`, et tout ce qui
 commence par `vct_`).
 
-**EU (EUDI)** — plus complexe car le verifier EUDI renvoie le **VP token brut** :
+**EU (EUDI)** - plus complexe car le verifier EUDI renvoie le **VP token brut** :
 `GET {verifier}/ui/presentations/{transactionId}` → tant que le wallet n'a pas répondu, le
 verifier renvoie `400 Bad Request` (c'est le signal "pas encore prêt", on continue de poller).
 Une fois disponible, `vp_token.<requestId>[0]` contient soit :
@@ -238,10 +238,10 @@ Puis filtrage des métadonnées JWT (`_sd`, `_sd_alg`, `iss`, `iat`, `exp`, `nbf
 - `qrCodeBitMap` dans la réponse de create est **un ajout maison**, absent des specs SWIYU/EUDI
   brutes : généré côté `api-gateway` à la volée à partir de `verificationUri`.
 - Il existe aussi un endpoint `/blocking` (poll synchrone) non mentionné dans le message collé
-  par l'utilisateur mais bien exposé — alternative au `/stream` SSE.
+  par l'utilisateur mais bien exposé - alternative au `/stream` SSE.
 - Il existe aussi un 3ᵉ flow, **Custom VC** (`/api/verification/custom`), pour des credentials
   émis par l'infra Edel-ID elle-même (même verifier backend que CH, mais `vctType` +
-  JSONPath libres sans allowlist) — voir `HOWTO.md` § "Custom VC".
+  JSONPath libres sans allowlist) - voir `HOWTO.md` § "Custom VC".
 
 ## Sources
 

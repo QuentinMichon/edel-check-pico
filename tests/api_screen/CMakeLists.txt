@@ -64,13 +64,13 @@ pico_enable_stdio_uart(api_screen 0)
 # arm-none-eabi les fournisse : dans le <inttypes.h> de newlib, ces macros sont gardees
 # par `#if __int64_t_defined`, qui vaut faux ici. On les fournit donc en ligne de
 # commande plutot que de modifier frozen.c, qui est du code tiers.
-# NB : le CMakeLists.txt de la racine ne le fait PAS — voir docs/ARCHITECTURE.md.
+# NB : le CMakeLists.txt de la racine ne le fait PAS - voir docs/ARCHITECTURE.md.
 target_compile_definitions(api_screen PRIVATE
         PRId64=\"lld\"
         PRIu64=\"llu\"
         # config/mbedtls_config.h n'active que deux echanges de cles : RSA statique
         # (refuse par tout serveur moderne) et ECDHE-ECDSA. Ca suffit pour
-        # auth.edel-id.app, dont le certificat est ECDSA — mais PAS pour un serveur a
+        # auth.edel-id.app, dont le certificat est ECDSA - mais PAS pour un serveur a
         # certificat RSA, qui negocie ECDHE-RSA. Sans suite en commun, le serveur ferme
         # et lwIP remonte -15 (ERR_CLSD).
         #   vercel.app  -> ECDHE-RSA-AES128-GCM-SHA256, certificat rsaEncryption
