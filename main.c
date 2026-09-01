@@ -14,6 +14,7 @@
 #include "storage/storage_manager.h"
 #include "enrollment/enrollment.h"
 #include "mqtt/mqtt_client.h"
+#include "power/power.h"
 
 
 #ifndef WIFI_SSID
@@ -120,6 +121,14 @@ int main(int argc, char *argv[]) {
     }
 
     sleep_ms(500);
+
+    // La mesure d'alimentation vient APRES l'initialisation de la puce WiFi : VBUS est cable
+    // sur une de ses broches et non sur un GPIO du RP2350, et VSYS partage la sienne avec
+    // elle. Avant cet appel, les deux lectures seraient fausses.
+    power_init();
+    printf("[power] %s, VSYS %.2f V, niveau %d%%\n",
+           power_sur_usb() ? "sur USB" : "sur batterie",
+           power_vsys_volts(), power_niveau_pourcent());
 
     // L'interface reprend la main apres un ecran d'erreur transitoire.
     edel_mqtt_set_ui_restore_cb(nav_redraw);
