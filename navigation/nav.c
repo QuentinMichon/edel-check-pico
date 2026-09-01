@@ -11,6 +11,7 @@
 #include "profiles/profiles.h"
 #include "session/session.h"
 #include "screen/epd_text.h"
+#include "power/power.h"
 
 
 static nav_page_t state = NAV_PAGE_MENU;
@@ -75,16 +76,45 @@ static void go_to_verify(void) {
     state = NAV_PAGE_VERIFY;
 }
 
+// Page d'information, en lecture seule. Elle affichait auparavant WIFI et PAIRING, deux
+// entrees dont aucune touche ne faisait quoi que ce soit. Montrer ce que le boitier sait
+// de lui-meme est plus utile qu'un menu qui ne repond pas.
+//
+// display_menu ne convient pas ici : sa police ne connait que A-Z, or il faut des chiffres.
+// D'ou epd_text, qui trace une matrice 5x7 complete.
 static void go_to_settings(void) {
 
-    printf("\n\n\n====== SETTINGS ========\n\n");
-    printf("1) WIFI\n");
-    printf("2) PAIRING\n");
-    printf("3) \n");
+    persistent_storage_t *cfg = get_local_storage();
+
+    printf("\n\n\n====== INFOS ===========\n\n");
+    printf("boitier  %s\n", cfg->device_id[0] ? cfg->device_id : "non appaire");
+    printf("broker   %s:%u\n", cfg->broker_host, cfg->broker_port);
+    printf("wifi     %s\n", cfg->wifi_1_ssid);
+    printf("batterie %d%% (%.2f V, %s)\n", power_niveau_pourcent(), power_vsys_volts(),
+           power_sur_usb() ? "usb" : "batterie");
     printf("4) BACK TO MENU\n");
     printf("\n\n\n========================\n\n");
 
-    display_menu(false, 4, "wifi", "pairing", "", "back to menu");
+    static char ligne[64];
+
+    epd_fb_clear(true);
+    epd_fb_write_big_centered(20, "INFOS", 3);
+
+    snprintf(ligne, sizeof(ligne), "ID %s", cfg->device_id[0] ? cfg->device_id : "NON APPAIRE");
+    epd_fb_write_big(20, 80, ligne, 2);
+
+    snprintf(ligne, sizeof(ligne), "BROKER %s", cfg->broker_host);
+    epd_fb_write_big(20, 120, ligne, 2);
+
+    snprintf(ligne, sizeof(ligne), "WIFI %s", cfg->wifi_1_ssid);
+    epd_fb_write_big(20, 160, ligne, 2);
+
+    snprintf(ligne, sizeof(ligne), "BATTERIE %d%% %s", power_niveau_pourcent(),
+             power_sur_usb() ? "USB" : "");
+    epd_fb_write_big(20, 200, ligne, 2);
+
+    epd_fb_write_big(20, 260, "4 RETOUR", 2);
+    epd_display_update_partial();
 
     state = NAV_PAGE_SETTINGS;
 }
@@ -133,15 +163,6 @@ void poll_usb_nav_key(void) {
         // ========================== PAGE SETTINGS =================================
         case NAV_PAGE_SETTINGS:
             switch (c) {
-                case '1':
-                    printf("NA: 1\n");
-                    break;
-                case '2':
-                    printf("NA: 2\n");
-                    break;
-                case '3':
-                    printf("NA: 3\n");
-                    break;
                 case '4':
                     go_to_menu();
                     break;
