@@ -58,7 +58,7 @@ static char topic_cfg[64], topic_cmd[64], topic_img[64], topic_status[64];
 //
 // lwIP livre le topic UNE fois (publish_cb) puis la charge utile en N tranches
 // (data_cb) de <= TCP_MSS octets. Le topic n'est plus disponible dans data_cb : il faut
-// donc le memoriser ici. C'est le " brancher img avant tout parsing " du simulateur,
+// donc le memoriser ici. C'est le "brancher img avant tout parsing" du simulateur,
 // transpose en C.
 static enum { T_AUTRE, T_CFG, T_CMD, T_IMG } topic_courant;
 static uint32_t rx_attendu, rx_recu;
@@ -82,7 +82,7 @@ static void sur_abonnement(void *arg, err_t err) {
         printf("[mqtt] abonnement %-3s : accorde\n", nom);
     } else {
         // L'ACL du serveur refuse TOUT joker et repond topic par topic. Un seul refus
-        // ne veut donc pas dire " MQTT ne marche pas " - d'ou les trois lignes separees.
+        // ne veut donc pas dire "MQTT ne marche pas" - d'ou les trois lignes separees.
         printf("[mqtt] abonnement %-3s : REFUSE (err %d)\n", nom, err);
     }
 }
@@ -247,7 +247,7 @@ int main(void) {
     }
 
     // A poser AVANT la connexion. Sans ces deux rappels, lwIP jette chaque message
-    // entrant en silence - et le symptome ressemble a " le cloud ne repond jamais ".
+    // entrant en silence - et le symptome ressemble a "le cloud ne repond jamais".
     mqtt_set_inpub_callback(client, sur_topic_entrant, sur_donnees, NULL);
 
     connecter();

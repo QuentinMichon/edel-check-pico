@@ -81,7 +81,7 @@ static void sur_abonnement(void *arg, err_t err) {
 }
 
 static void sur_publication(void *arg, err_t err) {
-    printf("[mqtt] %s : %s\n", (const char *) arg, err == ERR_OK ? "publie" : "REFUSE");
+    printf("[mqtt] %s : %s\n", (const char *) arg, err == ERR_OK ? "publie":"REFUSE");
 }
 
 static void sur_topic_entrant(void *arg, const char *topic, u32_t tot_len) {

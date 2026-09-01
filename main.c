@@ -114,7 +114,8 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    // TODO MOVE dans settings
+    // Les identifiants wifi viennent de la flash, poses a l'appairage. Les changer demande
+    // aujourd'hui un reflashage : une page de reglages sur le boitier reste a ecrire.
     if (!wifi_connect(local_storage->wifi_1_ssid, local_storage->wifi_1_password, 30000)) {
         printf("impossible de continuer sans wifi\n");
         return -1;

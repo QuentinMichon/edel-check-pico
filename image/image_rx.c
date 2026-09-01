@@ -161,7 +161,7 @@ bool image_rx_end(void) {
         return false;
     }
 
-    // QoS 1 garantit " au moins une fois " : un fragment peut arriver deux fois. Le couple
+    // QoS 1 garantit "au moins une fois" : un fragment peut arriver deux fois. Le couple
     // (img_id, seq) rend donc l'operation idempotente - on ne recompte pas un seq deja vu.
     if (!(recus_masque & (1u << seq_courant))) {
         recus_masque |= (1u << seq_courant);

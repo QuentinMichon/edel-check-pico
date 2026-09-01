@@ -33,7 +33,7 @@ set(EDEL_API_USE_TLS "${EDEL_API_USE_TLS}" CACHE STRING "true/false : HTTPS vers
 # /provisioning/poll renvoie l'adresse du broker, et c'est elle qui fait foi : le boitier
 # la stocke en flash, donc demenager l'infrastructure ne demande aucune recompilation.
 # Tant que MQTT_PUBLIC_HOST vaut `localhost` cote edelcheck, le serveur annonce cependant
-# une adresse injoignable depuis le terrain — cette variable permet de la remplacer en
+# une adresse injoignable depuis le terrain - cette variable permet de la remplacer en
 # attendant que la configuration serveur soit corrigee.
 set(EDEL_BROKER_HOST_OVERRIDE "${EDEL_BROKER_HOST_OVERRIDE}" CACHE STRING "force l'adresse du broker (dev)")
 

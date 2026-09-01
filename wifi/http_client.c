@@ -57,10 +57,10 @@ typedef struct {
 // etats de l'automate de dechunking RFC 7230 (Transfer-Encoding: chunked)
 enum http_chunk_state_t {
     HTTP_CHUNK_SIZE = 0,  // lecture des chiffres hexa de la taille du chunk (extensions ignorees)
-    HTTP_CHUNK_SIZE_LF,   // "\r" vu, attente du "\n" terminant la ligne de taille
+    HTTP_CHUNK_SIZE_LF,   // "\r"vu, attente du"\n" terminant la ligne de taille
     HTTP_CHUNK_DATA,      // copie de chunk_remaining octets de donnees dans out_body
     HTTP_CHUNK_DATA_CR,   // donnees terminees, attente du "\r" qui les suit
-    HTTP_CHUNK_DATA_LF,   // "\r" vu, attente du "\n" separant ce chunk du suivant
+    HTTP_CHUNK_DATA_LF,   // "\r"vu, attente du"\n" separant ce chunk du suivant
     HTTP_CHUNK_DONE,      // chunk terminal (taille 0) atteint : corps termine, reste ignore
 };
 
@@ -191,7 +191,7 @@ static void http_client_copy_body_chunked(http_client_state_t *state, const uint
                 } else if (c == '\r') {
                     state->chunk_state = HTTP_CHUNK_SIZE_LF;
                 }
-                // tout autre caractere (ex: extension ";foo=bar") est simplement ignore
+                // tout autre caractere (ex: extension";foo=bar") est simplement ignore
                 i++;
                 break;
             }
@@ -628,28 +628,3 @@ bool http_post(const char *host, uint16_t port, const char *path, bool use_tls,
  *      --- AUTH BASIC --------------------
  */
 
-// construit la valeur base64 de "username:password" dans out (NUL-terminee), utilisable par
-// l'appelant pour composer un entete "Authorization: Basic <out>\r\n" a passer en extra_headers
-// a http_get/http_post. retourne false si un des buffers est trop petit.
-bool http_client_basic_auth(const char *username, const char *password, char *out, size_t out_len) {
-    char credentials[128];
-    int n = snprintf(credentials, sizeof(credentials), "%s:%s",
-                      username ? username : "", password ? password : "");
-    if (n < 0 || (size_t) n >= sizeof(credentials)) {
-        return false;
-    }
-
-    if (out_len == 0) {
-        return false;
-    }
-
-    size_t olen = 0;
-    // out_len - 1 : on reserve toujours un octet pour le NUL final ajoute ci-dessous.
-    int rc = mbedtls_base64_encode((unsigned char *) out, out_len - 1, &olen,
-                                    (const unsigned char *) credentials, (size_t) n);
-    if (rc != 0) {
-        return false;
-    }
-    out[olen] = '\0';
-    return true;
-}

@@ -1,6 +1,6 @@
-# EdelCheck — Firmware Pico 2 W : architecture et reprise
+# EdelCheck - Firmware Pico 2 W : architecture et reprise
 
-**Document de reprise.** Écrit pour quelqu'un qui arrive sans contexte — un coéquipier,
+**Document de reprise.** Écrit pour quelqu'un qui arrive sans contexte - un coéquipier,
 un correcteur, ou une session d'assistant repartie de zéro. Il dit *ce qui existe
 réellement dans ce dépôt*, *pourquoi c'est comme ça*, et *ce qui ne correspond pas encore
 au contrat figé côté cloud*.
@@ -52,8 +52,8 @@ le `cmake`. Voir §9.4 pour forcer la remise à zéro.
 
 ### 0.3 Un écran mort ressemble à un rafraîchissement réussi
 
-`epd_wait_busy()` (`screen/epd_driver.c:66`) calcule `seen_high` — « la broche BUSY
-est-elle seulement montée ? » — puis **jette la valeur** : elle n'apparaît que dans un
+`epd_wait_busy()` (`screen/epd_driver.c:66`) calcule `seen_high` - « la broche BUSY
+est-elle seulement montée ? » - puis **jette la valeur** : elle n'apparaît que dans un
 `printf` de debug, et la fonction retourne `true` dans tous les cas sauf timeout.
 
 Un panneau débranché, mal alimenté ou en reset permanent produit donc :
@@ -67,7 +67,7 @@ seule preuve est visuelle.
 
 ### 0.4 Tous les diagnostics de l'écran sont compilés hors du binaire
 
-`epd_driver.c` est truffé de `#ifdef DEBUG_PRINT` — durée du BUSY, séquence d'init,
+`epd_driver.c` est truffé de `#ifdef DEBUG_PRINT` - durée du BUSY, séquence d'init,
 timeouts. Or `DEBUG_PRINT` n'est défini **nulle part** : ni dans `CMakeLists.txt`, ni dans
 un header. Tous ces `printf` sont absents du binaire.
 
@@ -139,7 +139,7 @@ storage/                   persistance dans le dernier secteur de flash
 navigation/                machine à états du menu, pilotée au clavier via USB
 ```
 
-Pas de `.gitignore` — un `build/` créé à la racine serait committé. Voir §10.
+Pas de `.gitignore` - un `build/` créé à la racine serait committé. Voir §10.
 
 ---
 
@@ -157,7 +157,7 @@ Brochage, défini dans `gpio/gpio_driver.h` :
 |---|---|---|---|
 | SCK | **18** | `GPIO_FUNC_SPI` (SPI0 SCK) | |
 | MOSI | **19** | `GPIO_FUNC_SPI` (SPI0 TX) | |
-| MISO | **16** | `GPIO_FUNC_SPI` (SPI0 RX) | réservé mais **jamais lu** — le panneau est écrit seul |
+| MISO | **16** | `GPIO_FUNC_SPI` (SPI0 RX) | réservé mais **jamais lu** - le panneau est écrit seul |
 | ECS (CS) | **17** | **GPIO manuel**, pas `SPI0 CSn` | basculé à la main autour de chaque octet |
 | DC | **21** | GPIO out | 0 = commande, 1 = donnée |
 | RST | **22** | GPIO out | actif bas, ≥10 ms (§4.2) |
@@ -172,12 +172,12 @@ Deux pièges pour qui ajouterait un périphérique :
 * **GP16 est immobilisé** pour un MISO inutilisé. Il est récupérable.
 
 Matériel prévu par le projet mais **absent du code** : les 4 boutons poussoirs (aucun GPIO
-d'entrée en dehors de BUSY), le contrôleur NFC PN7160, la jauge de batterie BQ27441 —
+d'entrée en dehors de BUSY), le contrôleur NFC PN7160, la jauge de batterie BQ27441 -
 l'icône batterie affichée est une image fixe « 80 % », pas une mesure.
 
 ---
 
-## 4. L'écran e-ink — le cœur de ce qu'on veut tester
+## 4. L'écran e-ink - le cœur de ce qu'on veut tester
 
 ### 4.1 Le modèle mental : un framebuffer 1 bit/pixel en RAM
 
@@ -204,7 +204,7 @@ tête pendant les tests d'affichage.
 | reset matériel | RST 1→0→1, 10/10/20 ms | timings Adafruit (le 2 ms initial était trop court pour le level shifter) |
 | `0x12` | SW reset | |
 | `0x01` | Driver Output Control | 299 lignes, 3 octets |
-| `0x11` | Data Entry Mode | `0x03` — X puis Y croissants |
+| `0x11` | Data Entry Mode | `0x03` - X puis Y croissants |
 | `0x44` | RAM X start/end | 0 → 49 (granularité **8 pixels**) |
 | `0x45` | RAM Y start/end | 0 → 299 |
 | `0x3C` | Border Waveform | `0x01` (valeur GxEPD2 pour ce panneau) |
@@ -236,7 +236,7 @@ un écran important) pour purger le ghosting.
 
 Avant chaque envoi de plan, `epd_write_plane()` repositionne les compteurs d'adresse
 `0x4E`/`0x4F`. C'est obligatoire : le compteur reste là où la dernière écriture s'est
-arrêtée — l'analogie POSIX est un `write()` sans `lseek()` préalable.
+arrêtée - l'analogie POSIX est un `write()` sans `lseek()` préalable.
 
 ### 4.4 Les primitives de dessin
 
@@ -245,7 +245,7 @@ arrêtée — l'analogie POSIX est un `write()` sans `lseek()` préalable.
 | `epd_fb_clear(bool white)` | remplit tout le framebuffer |
 | `epd_fb_set_pixel(x, y, white)` | un pixel, **clipping inclus** (hors écran = ignoré) |
 | `epd_fb_fill_rect(x, y, w, h, white)` | rectangle, via `set_pixel` |
-| `epd_fb_draw_image(x, y, img, w, h)` | blit 1bpp ; recalcule le stride source `(w+7)/8` — c'est ce désalignement avec les 50 octets/ligne du framebuffer qui interdit un `memcpy` direct |
+| `epd_fb_draw_image(x, y, img, w, h)` | blit 1bpp ; recalcule le stride source `(w+7)/8` - c'est ce désalignement avec les 50 octets/ligne du framebuffer qui interdit un `memcpy` direct |
 | `epd_fb_write_typo(x, y, text)` | texte, via un `switch` sur 27 glyphes |
 | `display_menu(full, n, ...)` | fond `fullscreen_base` + batterie + « edel id » + n lignes (max 4) espacées de 52 px à partir de y=46 |
 
@@ -265,12 +265,12 @@ memcpy(epd_framebuffer, fullscreen_chargement, EPD_BUFFER_SIZE);
 epd_display_update_partial();
 ```
 
-### 4.5 Format des assets — et l'outil manquant
+### 4.5 Format des assets - et l'outil manquant
 
 Chaque header d'asset porte le même en-tête généré :
 
 ```
-// Genere par epd_paint.html — image 400x300, 1 bit/pixel
+// Genere par epd_paint.html - image 400x300, 1 bit/pixel
 // bit 1 = blanc, bit 0 = noir, MSB = pixel de gauche, 50 octet(s)/ligne
 ```
 
@@ -282,7 +282,7 @@ Contrat, identique pour tous :
 | Ordre | MSB = pixel de gauche, balayage ligne par ligne |
 | Stride | `(largeur + 7) / 8` octets par ligne |
 | Symboles | `static const uint8_t <nom>[N]` + `<NOM>_W`, `<NOM>_H`, `<NOM>_W_BYTES` |
-| Contrainte panneau | la fenêtre X du SSD1683 a une granularité de 8 px — l'asset batterie note un bourrage blanc de 46 → 48 px |
+| Contrainte panneau | la fenêtre X du SSD1683 a une granularité de 8 px - l'asset batterie note un bourrage blanc de 46 → 48 px |
 
 > **`epd_paint.html` n'existe dans aucun des deux dépôts.** Recherché sur tout
 > `~/Documents/HEIG-VD/BA6/PDG` : absent. C'est le **blocage n°1** pour produire de
@@ -297,7 +297,7 @@ Contrat, identique pour tous :
 Assets présents : `fullscreen_base`, `fullscreen_chargement`, `check_fullscreen`,
 `epd_scan` (**jamais utilisé**), `epd_typo_5_[a-z]` + `_apos`, `epd_image_bat_80`.
 
-### 4.6 Coût réel d'un rafraîchissement — ce n'est pas un bug
+### 4.6 Coût réel d'un rafraîchissement - ce n'est pas un bug
 
 `epd_send_data()` envoie **un octet par appel**, avec une bascule de CS avant et après.
 Un plan = 15 000 appels. Donc :
@@ -312,7 +312,7 @@ partiel prend **638 ms**, de façon très stable d'un cycle à l'autre. C'est un
 une reprise des commentaires du driver.
 
 À 2 MHz, un rafraîchissement partiel passe donc plus de temps à taper sur des GPIO qu'à
-transférer. **C'est lent, et c'est attendu** — ne pas partir en chasse au bug de timing.
+transférer. **C'est lent, et c'est attendu** - ne pas partir en chasse au bug de timing.
 L'optimisation évidente (un seul `spi_write_blocking` de 15 000 octets, CS maintenu bas)
 est notée en §10, pas appliquée.
 
@@ -327,18 +327,18 @@ réseau ouvert ou WPA3 échouera. Pas de reconnexion automatique.
 
 ### 5.2 Le client HTTP
 
-`wifi/http_client.c` (612 lignes) est écrit à la main sur `altcp` de lwIP — la couche
+`wifi/http_client.c` (612 lignes) est écrit à la main sur `altcp` de lwIP - la couche
 qui rend TCP et TCP+TLS interchangeables. Ce choix donne le TLS « gratuitement » tout en
 laissant le contrôle sur les en-têtes, ce que `httpc_get_file_dns` ne permet pas.
 
 Il gère : DNS, TLS via mbedTLS, `GET`/`POST`, capture du corps seul (sans en-têtes) dans
 un buffer appelant, **et le décodage `Transfer-Encoding: chunked`** (automate
-`http_chunk_state_t`) — le commentaire de `http_client.h` qui dit le contraire est
+`http_chunk_state_t`) - le commentaire de `http_client.h` qui dit le contraire est
 périmé.
 
 > ⚠️ **Le certificat serveur n'est pas vérifié.** `http_client_alloc()` appelle
 > `altcp_tls_create_config_client(NULL, 0)` : aucune CA. Le SNI est bien envoyé, la
-> connexion est chiffrée, mais **n'importe quel certificat est accepté** — un MITM sur le
+> connexion est chiffrée, mais **n'importe quel certificat est accepté** - un MITM sur le
 > réseau local lit et modifie le flux OAuth et les réponses de vérification. Acceptable
 > pour un banc de test, pas pour une soutenance ni pour de vrais jetons.
 
@@ -370,7 +370,7 @@ Tailles : réponse de vérification ~7-8 Ko (le bitmap QR en JSON), d'où `body[
 token JWT jusqu'à 800 octets (`MEM_BEARER_TOKEN_SIZE`).
 
 > ⚠️ **`OAUTH_CLIENT_ID` et `OAUTH_CLIENT_SECRET` sont en clair dans
-> `wifi/http_client.h:30-31`, committés, sur un dépôt avec remote GitHub** — alors que le
+> `wifi/http_client.h:30-31`, committés, sur un dépôt avec remote GitHub** - alors que le
 > commentaire juste au-dessus dit « ne pas commiter de vrais secrets ». Le secret est à
 > considérer comme compromis : il faut le **révoquer côté Zitadel** puis passer par le
 > stockage flash ou une injection au build. Les valeurs ne sont volontairement pas
@@ -385,12 +385,12 @@ serveur.
 `config/mbedtls_config.h` n'active que **deux** échanges de clés :
 
 ```c
-#define MBEDTLS_KEY_EXCHANGE_RSA_ENABLED          // RSA statique — refusé par tout serveur moderne
+#define MBEDTLS_KEY_EXCHANGE_RSA_ENABLED          // RSA statique - refusé par tout serveur moderne
 #define MBEDTLS_KEY_EXCHANGE_ECDHE_ECDSA_ENABLED  // ECDHE, mais seulement avec un certificat ECDSA
 ```
 
 Il manque **`MBEDTLS_KEY_EXCHANGE_ECDHE_RSA_ENABLED`**. Conséquence : face à un serveur
-qui présente un **certificat RSA** — le cas le plus courant — le client n'a aucune suite
+qui présente un **certificat RSA** - le cas le plus courant - le client n'a aucune suite
 cryptographique en commun, le serveur ferme la connexion, et lwIP remonte `-15`
 (`ERR_CLSD`). Le message affiché est `[http] erreur de connexion (-15)`, qui ne dit rien
 de la cause.
@@ -406,14 +406,14 @@ Mesuré des deux côtés :
 
 > **Ce que ça implique pour le produit.** Le `device-service` d'EdelCheck sera exposé
 > derrière nginx avec un certificat Let's Encrypt. **Let's Encrypt délivre du RSA par
-> défaut** — il faut le demander explicitement en ECDSA. Autrement dit : le jour du
+> défaut** - il faut le demander explicitement en ECDSA. Autrement dit : le jour du
 > déploiement sur le VPS, le parc entier échouera à joindre l'API, avec pour seul indice
 > un `-15`. Deux issues, à choisir consciemment :
 >
 > 1. ajouter `MBEDTLS_KEY_EXCHANGE_ECDHE_RSA_ENABLED` et `MBEDTLS_PKCS1_V21` à
->    `config/mbedtls_config.h` — deux lignes, la bonne solution ;
+>    `config/mbedtls_config.h` - deux lignes, la bonne solution ;
 > 2. imposer un certificat ECDSA côté serveur, et le documenter comme une contrainte de
->    déploiement — fragile, parce que ça se perd au premier renouvellement.
+>    déploiement - fragile, parce que ça se perd au premier renouvellement.
 
 `MBEDTLS_PKCS1_V21` va avec : les serveurs récents signent en **RSA-PSS**, pas en
 PKCS#1 v1.5.
@@ -424,7 +424,7 @@ Rien n'a été modifié dans `config/mbedtls_config.h` : le contournement vit da
 ### 5.5 Configuration lwIP / mbedTLS
 
 `config/lwipopts.h` : `TCP_WND = 32768`, choisi **strictement supérieur** à la taille max
-d'un record TLS en clair (16384) — sans ça, un record complet ne tient pas dans la fenêtre
+d'un record TLS en clair (16384) - sans ça, un record complet ne tient pas dans la fenêtre
 et la connexion se bloque. `LWIP_DEBUG` est désactivé volontairement (bug lwIP connu quand
 `LWIP_ALTCP` et `LWIP_DEBUG` sont actifs ensemble).
 
@@ -435,7 +435,7 @@ n'émet jamais de gros corps), entropie matérielle RP2350.
 
 ## 6. Stockage persistant
 
-`storage/storage_manager.c` — **le dernier secteur de flash** :
+`storage/storage_manager.c` - **le dernier secteur de flash** :
 
 ```c
 FLASH_TARGET_OFFSET = PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE   // 4 Mo - 4 Ko = 0x3FF000
@@ -464,7 +464,7 @@ Points à connaître :
 
 ## 7. Navigation
 
-`navigation/nav.c` — machine à états à 4 pages :
+`navigation/nav.c` - machine à états à 4 pages :
 
 ```
 NAV_PAGE_MENU ──1──▶ NAV_PAGE_PROFILE ──1──▶ post_token()
@@ -475,7 +475,7 @@ NAV_PAGE_MENU ──1──▶ NAV_PAGE_PROFILE ──1──▶ post_token()
 
 **L'entrée se fait exclusivement au clavier, via le port série USB** :
 `getchar_timeout_us(0)` en polling toutes les 10 ms dans `main.c`. Les touches `1`-`4` et
-`x`. Les 4 boutons poussoirs du matériel n'ont **aucun code** — `init_gpio()` ne configure
+`x`. Les 4 boutons poussoirs du matériel n'ont **aucun code** - `init_gpio()` ne configure
 que les broches de l'écran.
 
 Conséquence pratique : **toute la navigation se pilote depuis `picocom`**, en tapant des
@@ -485,7 +485,7 @@ Pages `SETTINGS` (wifi, pairing) : squelettes vides, `printf("NA")`.
 
 ---
 
-## 8. La divergence avec le contrat MQTT — à lire avant de planifier quoi que ce soit
+## 8. La divergence avec le contrat MQTT - à lire avant de planifier quoi que ce soit
 
 `../edelcheck/docs/mqtt-contract.md` est en **v1.0, figé**, et modifiable seulement par
 accord explicite des deux côtés. Ce firmware ne l'implémente pas. Ce n'est pas un retard
@@ -514,7 +514,7 @@ driver, pas un ajustement.
 **Question ouverte à trancher en équipe, pas seul :** est-ce le firmware qui rejoint le
 contrat, ou le contrat qui s'aligne sur ce que le firmware sait faire (1bpp, rendu local) ?
 Le contrat dit qu'il faut un accord explicite des deux côtés. Le simulateur navigateur du
-dépôt `edelcheck` implémente déjà, lui, le côté contrat — donc la démonstration cloud
+dépôt `edelcheck` implémente déjà, lui, le côté contrat - donc la démonstration cloud
 fonctionne sans ce firmware.
 
 ---
@@ -536,7 +536,7 @@ Ce qui est installé et validé (Ubuntu 24.04) :
 | `arm-none-eabi-gcc` / `g++` | **13.2.1** (paquet Ubuntu `15:13.2.rel1-2`) |
 | pico-sdk | **2.3.0**, dans `~/pico-sdk`, submodules inclus |
 | `picocom` | 3.1 |
-| `picotool` | **inutile d'en installer un** — le SDK le télécharge et le compile seul au premier `cmake` |
+| `picotool` | **inutile d'en installer un** - le SDK le télécharge et le compile seul au premier `cmake` |
 
 ```bash
 sudo apt install -y gcc-arm-none-eabi libnewlib-arm-none-eabi \
@@ -554,7 +554,7 @@ de liens finale passe d'ailleurs par `g++`).
 
 `--depth 1 --shallow-submodules` ramène **396 Mo** au lieu de plusieurs gigaoctets, et
 suffit entièrement. **`usermod` ne prend effet qu'après déconnexion/reconnexion de la
-session** — en attendant, préfixer par `sudo`.
+session** - en attendant, préfixer par `sudo`.
 
 Pour que `picotool` puisse parler à la carte en USB (reset à distance, `picotool info`),
 il faut en plus `libusb-1.0-0-dev` **avant** le premier `cmake` : sans lui le SDK compile
@@ -566,7 +566,7 @@ un picotool sans support USB, qui ne sait que manipuler des fichiers.
 ls ~/pico-sdk/src/boards/include/boards/pico2_w.h
 ```
 
-S'il manque, le SDK est trop ancien — mettre à jour plutôt que de chercher un numéro de
+S'il manque, le SDK est trop ancien - mettre à jour plutôt que de chercher un numéro de
 version de mémoire.
 
 ### 9.2 Configurer et compiler
@@ -597,7 +597,7 @@ picotool load build/edel-check-pico.uf2 -f && picotool reboot
 
 **La copie de fichier est le chemin le plus simple** : ni `sudo`, ni `picotool`
 fonctionnel en USB. C'est ce que fait `tests/screen_test/flash.sh` (§9.6). Corollaire
-gênant : **sans picotool USB, on ne peut pas redémarrer la carte depuis le PC** — il faut
+gênant : **sans picotool USB, on ne peut pas redémarrer la carte depuis le PC** - il faut
 débrancher/rebrancher physiquement. D'où l'intérêt d'installer `libusb-1.0-0-dev` (§9.1),
 ou d'écrire les bancs de test en boucle infinie plutôt qu'en passe unique.
 
@@ -614,9 +614,9 @@ Le débit est ignoré sur USB CDC ; `115200` est conventionnel.
 
 Nécessaire dès qu'on change de réseau Wi-Fi (§0.2). Trois voies, par ordre de préférence :
 
-1. `picotool erase -r 0x103FF000 0x10400000` — n'efface que le secteur de config
+1. `picotool erase -r 0x103FF000 0x10400000` - n'efface que le secteur de config
    (syntaxe exacte à vérifier selon la version de picotool).
-2. `flash_nuke.uf2` (pico-examples) — efface **toute** la flash, firmware compris.
+2. `flash_nuke.uf2` (pico-examples) - efface **toute** la flash, firmware compris.
 3. Changer temporairement `CONFIG_MAGIC` dans `storage_manager.h`, flasher, remettre.
    Sale mais toujours disponible.
 
@@ -633,10 +633,10 @@ $ lsblk        →  aucun volume RP2350 monté
 ```
 
 Ce qui est **certain** : un port CDC est exposé et aucun volume de stockage de masse n'est
-monté — donc un firmware tourne, la carte n'est **pas** en BOOTSEL, et d'après §0.1 elle
+monté - donc un firmware tourne, la carte n'est **pas** en BOOTSEL, et d'après §0.1 elle
 est très probablement parquée dans l'attente bloquante de `stdio_init_all()`.
 
-**Correspondance des identifiants USB — observée dans les deux états le 22.08.2026** :
+**Correspondance des identifiants USB - observée dans les deux états le 22.08.2026** :
 
 | État de la carte | Identifiant USB | Ce qui apparaît côté hôte |
 |---|---|---|
@@ -665,13 +665,13 @@ Quatre écarts volontaires avec le firmware principal, qui font tout l'intérêt
 | `PICO_STDIO_USB_CONNECT_WAIT_TIMEOUT_MS=3000` au lieu de `-1` | **la carte exécute le test même sans terminal série attaché** (§0.1) |
 | `DEBUG_PRINT` activé | les diagnostics de `epd_driver.c` sont enfin compilés (§0.4) |
 
-La démo tourne **en boucle infinie** : elle rejoue sans qu'on ait à rebrancher la carte —
+La démo tourne **en boucle infinie** : elle rejoue sans qu'on ait à rebrancher la carte -
 ce qui compense l'absence de reset à distance (§9.3).
 
 Huit étapes : blanc, noir plein, mire géométrique, texte, image plein écran, quatre
 rafraîchissements partiels, balayage d'une barre en huit partiels enchaînés, menu. Chaque
 rafraîchissement est chronométré, et le banc **lit `gpio_get(PIN_BUSY)` directement** après
-chaque opération — parce que `epd_wait_busy()` ne dit pas la vérité (§0.3). Ce sont ces
+chaque opération - parce que `epd_wait_busy()` ne dit pas la vérité (§0.3). Ce sont ces
 valeurs de BUSY, et non les messages « termine. », qui disent si le panneau répond.
 
 La mire de l'étape 3 est faite pour lever les ambiguïtés : un cadre complet vérifie les
@@ -684,26 +684,26 @@ Empreinte : 92 Ko de code, 17,6 Ko de RAM (dont les 15 Ko du framebuffer).
 
 ---
 
-## 10. Dette technique repérée — constatée, non corrigée
+## 10. Dette technique repérée - constatée, non corrigée
 
 Aucun de ces points n'a été modifié : le dépôt est resté intact à la demande.
 
 | Où | Constat |
 |---|---|
-| `wifi/http_client.h:30-31` | **secret OAuth2 committé** — à révoquer et sortir du dépôt (§5.3) |
+| `wifi/http_client.h:30-31` | **secret OAuth2 committé** - à révoquer et sortir du dépôt (§5.3) |
 | `http_client.c:386` | **TLS sans vérification de certificat** (§5.2) |
-| racine | **pas de `.gitignore`** — `build/`, `.idea/`, `.DS_Store` sont ou seront committés |
+| racine | **pas de `.gitignore`** - `build/`, `.idea/`, `.DS_Store` sont ou seront committés |
 | `screen/epd_driver.c:66` | `epd_wait_busy` retourne `true` même si BUSY n'est jamais monté (§0.3) |
 | `CMakeLists.txt` | `DEBUG_PRINT` jamais défini → tous les diagnostics écran compilés hors binaire (§0.4) |
 | `navigation/nav.c` | `case 'x':` **tombe dans `default:`** (pas de `break`) → « EXIT » puis « NOT SUPPORTED » |
-| `main.c` vs `nav.c` | `display_menu(true, 4, "check","settings","post token","mcquenty")` au boot, `display_menu(false, 2, ...)` ensuite — deux menus différents, dont un de test |
+| `main.c` vs `nav.c` | `display_menu(true, 4, "check","settings","post token","mcquenty")` au boot, `display_menu(false, 2, ...)` ensuite - deux menus différents, dont un de test |
 | `main.c:24,92` | `flags_irq` et le timer 5 s : le flag est levé, **jamais lu** |
-| `storage_manager.c:16` | commentaire « 2 secteurs = 8192 octets » faux — un seul secteur |
+| `storage_manager.c:16` | commentaire « 2 secteurs = 8192 octets » faux - un seul secteur |
 | `storage_manager.c` | `get_local_storage()` sans mutex (`TODO` explicite) |
 | `main.c:55-57` | mot de passe Wi-Fi et bearer token imprimés en clair au démarrage |
-| `http_client.h` | commentaire « pas de support de `Transfer-Encoding: chunked` » périmé — c'est implémenté |
+| `http_client.h` | commentaire « pas de support de `Transfer-Encoding: chunked` » périmé - c'est implémenté |
 | `assets/full_screen/epd_image_scanner.h` | asset `epd_scan` jamais utilisé |
-| `screen/epd_driver.c` | envoi octet par octet avec bascule de CS (§4.6) — un `spi_write_blocking` global diviserait le temps de refresh |
+| `screen/epd_driver.c` | envoi octet par octet avec bascule de CS (§4.6) - un `spi_write_blocking` global diviserait le temps de refresh |
 | assets | `static const` dans des headers : chaque `.c` qui inclut `epd_driver.h` embarque sa propre copie des images qu'il utilise |
 | `wifi_setup.c` | `CYW43_AUTH_WPA2_AES_PSK` en dur, pas de reconnexion |
 | `nav.c:122` | `TODO` : pas de renouvellement du token quand il a expiré |
@@ -725,7 +725,7 @@ Par ordre de dépendance, du plus bloquant au plus confortable :
    `return -1` sur échec Wi-Fi.
 5. **Rendre `epd_wait_busy` honnête** (retourner `false` si BUSY n'est jamais monté),
    sinon tous les tests d'écran mentent.
-6. **Câbler les 4 boutons** — la navigation série est un échafaudage de développement.
+6. **Câbler les 4 boutons** - la navigation série est un échafaudage de développement.
 7. **Trancher la question MQTT** (§8) en équipe, avant d'écrire la moindre ligne dans
    cette direction.
 

@@ -22,7 +22,7 @@ float power_vsys_volts(void);
 
 // Niveau a publier dans `status`, en pourcentage 0-100.
 //
-// Sous USB, rend 100 : la question « combien reste-t-il ? » n'a pas de sens quand la source
+// Sous USB, rend 100 : la question "combien reste-t-il ?" n'a pas de sens quand la source
 // est illimitee. Sur batterie, interpole entre 3,0 V (vide) et 4,2 V (pleine), les bornes
 // usuelles d'un accumulateur lithium a element unique.
 int power_niveau_pourcent(void);

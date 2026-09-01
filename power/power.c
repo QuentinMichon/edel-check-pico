@@ -49,7 +49,7 @@ float power_vsys_volts(void) {
     //
     // C'est le piege de cette broche : la puce WiFi la RECONFIGURE pour son propre usage
     // entre deux lectures. L'initialiser une seule fois donnait une mesure de 0,02 V au lieu
-    // de 5 V — mesure sur la carte, pas deduite. Le pilote avait repris la main entre-temps.
+    // de 5 V - mesure sur la carte, pas deduite. Le pilote avait repris la main entre-temps.
     adc_gpio_init(PICO_VSYS_PIN);
     adc_select_input(VSYS_ADC_CANAL);
 

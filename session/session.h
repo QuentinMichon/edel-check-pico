@@ -5,7 +5,7 @@
 
 // Ouverture d'une session de verification, cote boitier.
 //
-// Le boitier ne fait qu'UNE chose : dire " le profil N a ete demande ". Il ne construit
+// Le boitier ne fait qu'UNE chose : dire "le profil N a ete demande". Il ne construit
 // aucune requete de presentation, n'appelle aucun service de verification et ne connait
 // aucun attribut. Tout cela se passe dans device-service, qui repond ensuite par des
 // images deja tramees.

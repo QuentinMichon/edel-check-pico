@@ -104,7 +104,7 @@
 // Verification STRICTE du certificat du serveur.
 //
 // lwIP regle ce mode sur MBEDTLS_SSL_VERIFY_OPTIONAL par defaut (altcp_tls_mbedtls_opts.h,
-// ligne 106). « Optional » ne veut pas dire « au choix » : mbedTLS verifie, CONSTATE l'echec,
+// ligne 106). "Optional" ne veut pas dire "au choix" : mbedTLS verifie, CONSTATE l'echec,
 // et poursuit quand meme la poignee de main. La verification a lieu, son resultat est ignore.
 //
 // Fournir l'autorite a altcp_tls_create_config_client() ne change donc rien tant que ce mode

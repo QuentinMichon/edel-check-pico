@@ -1,6 +1,6 @@
 # edel-check-pico
 
-Firmware du boîtier **EdelCheck** — le terminal de comptoir qui vérifie une identité
+Firmware du boîtier **EdelCheck** - le terminal de comptoir qui vérifie une identité
 numérique (e-ID suisse, EUDI Wallet, permis de conduire mobile) sans révéler plus que
 nécessaire.
 
@@ -12,7 +12,7 @@ simulateur vivent dans le dépôt voisin [`edelcheck`](../edelcheck).
 | Cible | Raspberry Pi Pico 2 W (RP2350, Wi-Fi CYW43439) |
 | Écran | e-ink 4,2" 400x300, contrôleur SSD1683, breakout Adafruit E-Ink Friend |
 | Langage | C11, SDK Raspberry Pi Pico |
-| Projet | PDG, HEIG-VD, semestre d'été 2026 — soutenance le 4 septembre 2026 |
+| Projet | PDG, HEIG-VD, semestre d'été 2026 - soutenance le 4 septembre 2026 |
 
 ---
 
@@ -36,7 +36,7 @@ cloud contacte le service de vérification, rend un QR code en 400x300, et le po
 fragments. Le boîtier les seuille à la volée vers son framebuffer et rafraîchit l'écran en
 638 ms. Le citoyen scanne, le verdict redescend de la même façon.
 
-La navigation se fait **au clavier, par le port série USB** (touches `1`-`4`, `x`) — les
+La navigation se fait **au clavier, par le port série USB** (touches `1`-`4`, `x`) - les
 boutons poussoirs ne sont pas encore câblés côté logiciel.
 
 Le boîtier ne détient aucun secret d'organisation et ne voit jamais un attribut personnel :
@@ -74,7 +74,7 @@ cd tests/unit && make
 ```
 
 Cinquante vérifications sur la conversion d'images, l'analyse de la configuration et le
-rendu de texte. Aucune dépendance : ni SDK Pico, ni chaîne arm-none-eabi, ni matériel — le
+rendu de texte. Aucune dépendance : ni SDK Pico, ni chaîne arm-none-eabi, ni matériel - le
 pilote d'écran est remplacé par un bouchon.
 
 Ce que ces tests ne couvrent pas, et qui reste du ressort des bancs matériels : la pile
@@ -115,7 +115,7 @@ cmake --build build
 ```
 
 Les identifiants Wi-Fi sont obligatoires : sans eux la compilation s'arrête sur un
-`#error`. Ils ne servent qu'au **premier** démarrage d'une carte vierge — ensuite, la
+`#error`. Ils ne servent qu'au **premier** démarrage d'une carte vierge - ensuite, la
 configuration vient de la flash.
 
 Téléversement, carte en mode BOOTSEL :
@@ -139,7 +139,7 @@ déconnecter et se reconnecter.
 
 ## Banc de test écran
 
-Un projet CMake séparé permet de qualifier le panneau e-ink sans rien démarrer d'autre —
+Un projet CMake séparé permet de qualifier le panneau e-ink sans rien démarrer d'autre -
 ni Wi-Fi, ni stockage, ni réseau :
 
 ```bash
@@ -148,7 +148,7 @@ ni Wi-Fi, ni stockage, ni réseau :
 
 Il enchaîne en boucle : blanc, noir plein, mire géométrique, texte, image plein écran,
 rafraîchissements partiels, balayage, menu. Chaque rafraîchissement est chronométré et
-l'état réel de la broche `BUSY` est relevé après chaque opération — parce que
+l'état réel de la broche `BUSY` est relevé après chaque opération - parce que
 `epd_wait_busy()` retourne `true` même sur un panneau mort.
 
 Contrairement au firmware principal, il démarre **même sans terminal série attaché** et
@@ -162,7 +162,7 @@ n'écrit rien dans le stockage persistant de la carte.
 | [`tests/unit/`](tests/unit/) | Tests unitaires, exécutés sur PC |
 | [`tests/mqtt_test/`](tests/mqtt_test/) | Banc de test MQTT sur TLS |
 | [`tests/screen_test/`](tests/screen_test/) | Banc de test du panneau e-ink |
-| [`../edelcheck/docs/mqtt-contract.md`](../edelcheck/docs/mqtt-contract.md) | Contrat MQTT v1.0 **figé** — ce que le cloud publie et attend |
+| [`../edelcheck/docs/mqtt-contract.md`](../edelcheck/docs/mqtt-contract.md) | Contrat MQTT v1.0 **figé** - ce que le cloud publie et attend |
 | [`../edelcheck/docs/ARCHITECTURE.md`](../edelcheck/docs/ARCHITECTURE.md) | Architecture d'ensemble du produit |
 
 ## Limitations connues
@@ -171,7 +171,7 @@ Le détail et les références de ligne sont dans `docs/ARCHITECTURE.md` §10.
 
 * Le **certificat serveur TLS n'est pas vérifié**. La CA reçue à l'appairage est bien
   stockée en flash, mais l'épinglage attend que le certificat du broker couvre l'adresse
-  réelle — son `subjectAltName` est écrit en dur dans `edelcheck/scripts/dev-up.sh`.
+  réelle - son `subjectAltName` est écrit en dur dans `edelcheck/scripts/dev-up.sh`.
 * `PICO_STDIO_USB_CONNECT_WAIT_TIMEOUT_MS=-1` fait attendre un terminal série au
   démarrage : un boîtier branché sur une prise, sans ordinateur, ne démarre jamais.
 * `epd_wait_busy()` retourne `true` même quand le panneau ne répond pas : un écran mort
@@ -185,4 +185,4 @@ Le détail et les références de ligne sont dans `docs/ARCHITECTURE.md` §10.
 
 ## Équipe
 
-Dylan Fehlmann · Quentin Michon (firmware) · Stan Stelcher — encadrant : Fouad Hanna.
+Dylan Fehlmann · Quentin Michon (firmware) · Stan Stelcher - encadrant : Fouad Hanna.

@@ -144,7 +144,11 @@ bool init_local_storage(void) {
     return true;
 }
 
-// TODO ADD MUTEX
+// Pas de verrou, et ce n'est pas un oubli : tous les appelants actuels sont sur la boucle
+// principale. g_config est partage et relu a chaque appel, donc un appel depuis un rappel
+// lwIP introduirait une course sur une structure a moitie chargee. Le mode
+// pico_cyw43_arch_lwip_threadsafe_background rend ce cas possible : verifier ce point avant
+// d'appeler get_local_storage() ailleurs que depuis la boucle.
 persistent_storage_t *get_local_storage() {
     if (!load_local_storage(&g_config)) {
         printf("[storage] error local storage not init. You have to call [init_local_storage] before using this function...\n");
@@ -213,8 +217,8 @@ bool storage_save_enrollment(const char *device_id, const char *device_secret,
         return false;
     }
 
-    // Relecture depuis la flash, pas depuis g_config : c'est ce qui distingue " ecrit " de
-    // " ecrit et verifie ", et c'est cette distinction qui evite le marquage SUSPECT.
+    // Relecture depuis la flash, pas depuis g_config : c'est ce qui distingue "ecrit" de
+    // "ecrit et verifie", et c'est cette distinction qui evite le marquage SUSPECT.
     static persistent_storage_t verif;
     if (!load_local_storage(&verif)
         || strcmp(verif.device_id, device_id) != 0

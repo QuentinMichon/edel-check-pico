@@ -32,8 +32,8 @@ void epd_fb_write_big_centered(int y, const char *text, int scale);
 // Replie une chaine UTF-8 sur l'alphabet que la police sait tracer : accents retires,
 // tout en majuscules, caracteres inconnus remplaces par un espace.
 //
-// Les libelles de profils viennent du portail, saisis par un operateur - " Majorite
-// verifiee " y arrive avec ses accents. Sans ce repli, chaque accentue s'afficherait comme
+// Les libelles de profils viennent du portail, saisis par un operateur - "Majorite
+// verifiee "y arrive avec ses accents. Sans ce repli, chaque accentue s'afficherait comme
 // un trou, et un libelle troue sur un comptoir a l'air d'un bug, pas d'une limite de
 // police.
 void epd_text_fold_ascii(const char *in, char *out, size_t out_len);
