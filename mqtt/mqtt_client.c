@@ -18,6 +18,7 @@
 #include "storage/storage_manager.h"
 #include "profiles/profiles.h"
 #include "image/image_rx.h"
+#include "session/session.h"
 #include "screen/epd_driver.h"
 #include "screen/epd_text.h"
 #include "power/power.h"
@@ -457,20 +458,31 @@ void edel_mqtt_poll(void) {
     if (image_a_afficher) {
         image_a_afficher = false;
         derniere_tranche_ms = 0;
-        epd_display_update_partial();
-        printf("[img] affichee\n");
 
         uint32_t affichee = image_rx_current_id();
 
-        // Sans ceci, la dalle restait sur le verdict jusqu'a la prochaine touche : le
-        // comptoir se retrouvait devant un ecran qui n'indique plus quoi appuyer.
-        if (img_id_verdict != 0 && affichee == img_id_verdict) {
+        // L'operateur a quitte la page avant le verdict. Le serveur, lui, n'en sait rien :
+        // le contrat n'a pas de message d'abandon, et il publiera quand meme. Afficher
+        // reprendrait la dalle sous les yeux de quelqu'un passe a autre chose.
+        if (session_est_abandonnee()) {
+            printf("[session] image d'une session abandonnee - ignoree\n");
             img_id_verdict = 0;
-            qr_affiche = false;
-            armer_retour_menu(VERDICT_AFFICHAGE_MS);
-        } else if (img_id_qr != 0 && affichee == img_id_qr) {
             img_id_qr = 0;
-            qr_affiche = true;
+            qr_affiche = false;
+        } else {
+            epd_display_update_partial();
+            printf("[img] affichee\n");
+
+            // Sans ceci, la dalle restait sur le verdict jusqu'a la prochaine touche : le
+            // comptoir se retrouvait devant un ecran qui n'indique plus quoi appuyer.
+            if (img_id_verdict != 0 && affichee == img_id_verdict) {
+                img_id_verdict = 0;
+                qr_affiche = false;
+                armer_retour_menu(VERDICT_AFFICHAGE_MS);
+            } else if (img_id_qr != 0 && affichee == img_id_qr) {
+                img_id_qr = 0;
+                qr_affiche = true;
+            }
         }
     }
 

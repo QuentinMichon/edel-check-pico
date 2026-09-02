@@ -27,6 +27,11 @@ static const uint broches[4] = {9, 11, 10, 8};
 static bool etait_presse[4];
 static uint32_t dernier_appui_us = 0;
 
+// Un seul appui retenu. La page suivante est de toute facon dessinee avant qu'un operateur
+// n'ait le temps d'en faire deux : en garder une file donnerait des enchainements que
+// personne n'a demandes.
+static volatile char en_attente = 0;
+
 void boutons_init(void) {
     for (int i = 0; i < 4; i++) {
         gpio_init(broches[i]);
@@ -35,9 +40,8 @@ void boutons_init(void) {
     }
 }
 
-char boutons_lire(void) {
+void boutons_scruter(void) {
     uint32_t maintenant = time_us_32();
-    char touche = 0;
 
     for (int i = 0; i < 4; i++) {
         bool presse = !gpio_get(broches[i]);
@@ -45,10 +49,16 @@ char boutons_lire(void) {
         // Le front seul compte : un bouton maintenu ne doit pas repeter.
         if (presse && !etait_presse[i] && maintenant - dernier_appui_us > ANTI_REBOND_US) {
             dernier_appui_us = maintenant;
-            touche = (char) ('1' + i);
+            en_attente = (char) ('1' + i);
         }
         etait_presse[i] = presse;
     }
+}
 
+char boutons_lire(void) {
+    boutons_scruter();
+
+    char touche = en_attente;
+    en_attente = 0;
     return touche;
 }

@@ -9,6 +9,15 @@
 
 static char req_id[16];
 static uint32_t compteur;
+static bool abandonnee;
+
+void session_abandon(void) {
+    abandonnee = true;
+}
+
+bool session_est_abandonnee(void) {
+    return abandonnee;
+}
 
 const char *session_last_req_id(void) {
     return req_id;
@@ -28,6 +37,8 @@ bool session_open(int profile_index) {
         printf("[session] hors ligne - session non ouverte\n");
         return false;
     }
+
+    abandonnee = false;
 
     // Un compteur suffit, combine a l'instant du demarrage : le req_id ne sert qu'a
     // apparier session_open et session_ready sur une meme connexion, il n'a besoin d'etre

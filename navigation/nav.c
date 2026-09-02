@@ -181,6 +181,10 @@ static void traiter_touche(int c) {
                     session_open(c - '1');
                     break;
                 case '4':
+                    // Quitter la page pendant qu'un QR est affiche vaut abandon : sans quoi
+                    // le verdict de cette session viendrait reprendre la dalle jusqu'a deux
+                    // minutes plus tard, sous les yeux de quelqu'un passe a autre chose.
+                    session_abandon();
                     go_to_menu();
                     break;
                 default:

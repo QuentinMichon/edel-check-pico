@@ -130,6 +130,8 @@ int main(int argc, char *argv[]) {
     // --- init GPIO ---
     init_gpio();
     boutons_init();
+    // Les boutons restent lus pendant les 638 ms a 2,3 s d'un rafraichissement.
+    epd_set_attente_cb(boutons_scruter);
 
     // --- init screen ---
     epd_init();

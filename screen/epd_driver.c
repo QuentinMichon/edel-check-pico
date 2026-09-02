@@ -64,6 +64,12 @@ void epd_send_data(const uint8_t *data) {
  */
 // Les deux printf restent volontairement. epd_wait_busy() rend true meme si BUSY n'est
 // jamais monte : sans eux, rien ne distingue un ecran qui s'est rafraichi d'un ecran mort.
+static void (*attente_cb)(void) = NULL;
+
+void epd_set_attente_cb(void (*cb)(void)) {
+    attente_cb = cb;
+}
+
 bool epd_wait_busy(uint32_t timeout_ms) {
     absolute_time_t start = get_absolute_time();
 
@@ -74,6 +80,9 @@ bool epd_wait_busy(uint32_t timeout_ms) {
             seen_high = true;
             break;
         }
+        if (attente_cb != NULL) {
+            attente_cb();
+        }
     }
 
     // Phase 2 : attend que BUSY REDESCENDE
@@ -83,6 +92,9 @@ bool epd_wait_busy(uint32_t timeout_ms) {
             printf("[screen] epd_wait_busy: timeout apres %u ms\n", timeout_ms);
 #endif
             return false;
+        }
+        if (attente_cb != NULL) {
+            attente_cb();
         }
         sleep_ms(5);
     }

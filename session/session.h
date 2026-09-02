@@ -24,6 +24,19 @@
 // charge utile.
 bool session_open(int profile_index);
 
+// L'operateur a quitte la page avant le verdict.
+//
+// Le contrat (v1.0, fige) n'a que trois messages du boitier vers le cloud : session_open,
+// img_abort et rotate_ack. Il n'existe aucun moyen de dire au serveur qu'on abandonne, et
+// celui-ci publiera son verdict jusqu'a 120 s plus tard. L'abandon est donc purement local :
+// le boitier cesse d'afficher ce qui concerne cette session.
+//
+// Cote serveur rien ne fuit : la session passe en `timeout` toute seule et le permis de
+// concurrence, tenu au plus 120 s, est rendu dans un finally.
+void session_abandon(void);
+
+bool session_est_abandonnee(void);
+
 // Le req_id de la derniere session ouverte, chaine vide si aucune.
 const char *session_last_req_id(void);
 

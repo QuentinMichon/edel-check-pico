@@ -36,6 +36,11 @@ extern uint8_t epd_framebuffer[EPD_BUFFER_SIZE];
 void epd_reset(void);
 void epd_send_command(const uint8_t *cmd);
 void epd_send_data(const uint8_t *data);
+// Appele en boucle pendant que le pilote attend BUSY. Un rafraichissement dure 638 ms en
+// partiel et 2,3 s en complet : sans ce rappel, rien d'autre ne tourne pendant ce temps et
+// un appui sur un bouton pendant l'animation est perdu.
+void epd_set_attente_cb(void (*cb)(void));
+
 bool epd_wait_busy(uint32_t timeout_ms);
 void epd_init(void);
 
