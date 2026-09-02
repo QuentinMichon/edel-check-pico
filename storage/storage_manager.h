@@ -35,6 +35,11 @@ typedef struct {
 
     uint8_t flags;              // flags[0] ~ manufacturer state (1 true / 0 false)
 
+    // Vestige de l epoque ou le boitier appelait l API d identite directement, avec un
+    // jeton OAuth2. Il passe desormais par la passerelle et ce champ n est plus ni ecrit
+    // ni lu. Il RESTE parce que le retirer changerait la disposition de la structure :
+    // il faudrait alors changer CONFIG_MAGIC, donc invalider la flash de tout boitier
+    // deja appaire et le forcer a se reappairer. 800 octets sur un secteur de 4096.
     char bearer_token[MEM_BEARER_TOKEN_SIZE];
 
     char wifi_1_ssid[MEM_SSID_SIZE];
@@ -55,7 +60,6 @@ typedef struct {
 
 bool init_local_storage(void);
 persistent_storage_t *get_local_storage();
-void put_bearer_token(char *bearer_token);
 
 // --- appairage ---------------------------------------------------------------
 

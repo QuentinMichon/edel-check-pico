@@ -156,25 +156,6 @@ persistent_storage_t *get_local_storage() {
     return &g_config;
 }
 
-void put_bearer_token(char *bearer_token) {
-    if (bearer_token == NULL) {
-        return;
-    }
-
-    if (!load_local_storage(&g_config)) {
-        printf("[storage] error local storage not init. You have to call [init_local_storage] before using this function...\n");
-    }
-
-    strncpy(g_config.bearer_token, bearer_token, sizeof(g_config.bearer_token) - 1);
-
-    if (!save_local_storage(&g_config)) {
-        printf("[storage] Bearer token NON sauvegarde\n");
-        return;
-    }
-
-    printf("[storage] Bearer token saved\n");
-}
-
 // --- appairage ---------------------------------------------------------------
 
 bool storage_is_enrolled(void) {
