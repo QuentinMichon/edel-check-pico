@@ -14,10 +14,10 @@ au contrat figé côté cloud*.
 | Dépôt amont | `git@github.com:QuentinMichon/edel-check-pico.git`, branche `main` |
 | Dernier commit documenté | `eb54350` |
 
-Documents liés, dans le dépôt voisin `../edelcheck` :
-[`docs/ARCHITECTURE.md`](../../edelcheck/docs/ARCHITECTURE.md) ·
-[`docs/mqtt-contract.md`](../../edelcheck/docs/mqtt-contract.md) (**le contrat qui engage ce
-firmware**) · [`contracts/verification-service.md`](../../edelcheck/contracts/verification-service.md)
+Documents liés, dans le dépôt du cloud :
+[`docs/ARCHITECTURE.md`](https://gitlab.com/hliosone/edelcheck/-/blob/main/docs/ARCHITECTURE.md) ·
+[`docs/mqtt-contract.md`](https://gitlab.com/hliosone/edelcheck/-/blob/main/docs/mqtt-contract.md) (**le contrat qui engage ce
+firmware**) · [`contracts/verification-service.md`](https://gitlab.com/hliosone/edelcheck/-/blob/main/contracts/verification-service.md)
 
 ---
 
@@ -487,7 +487,7 @@ Pages `SETTINGS` (wifi, pairing) : squelettes vides, `printf("NA")`.
 
 ## 8. La divergence avec le contrat MQTT - à lire avant de planifier quoi que ce soit
 
-`../edelcheck/docs/mqtt-contract.md` est en **v1.0, figé**, et modifiable seulement par
+`docs/mqtt-contract.md` du cloud est en **v1.0, figé**, et modifiable seulement par
 accord explicite des deux côtés. Ce firmware ne l'implémente pas. Ce n'est pas un retard
 de détail : les deux architectures sont incompatibles telles quelles.
 
