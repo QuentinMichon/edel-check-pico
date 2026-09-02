@@ -143,8 +143,8 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    // Les identifiants wifi viennent de la flash, poses a l'appairage. Les changer demande
-    // aujourd'hui un reflashage : une page de reglages sur le boitier reste a ecrire.
+    // Les identifiants wifi viennent de la flash. Ils y sont semes a la compilation au tout
+    // premier demarrage, puis remplaces par ce que le portail captif enregistre.
     //
     // On reessaie au lieu de rendre la main. Un return ici terminait main() : l'USB restait
     // enumere mais plus rien ne tournait, et seule une coupure d'alimentation relancait le

@@ -43,12 +43,15 @@ pas. Le firmware **n'a pas planté** : il attend un terminal.
 ### 0.2 Recompiler avec un autre `-DWIFI_SSID=` ne change rien sur une carte déjà démarrée
 
 `WIFI_SSID` / `WIFI_PASSWORD` ne sont **pas** utilisés à la connexion. Ils ne servent qu'à
-*semer* le stockage flash au tout premier démarrage (`storage/storage_manager.c:47-57`),
-et uniquement si le mot magique `CONFIG_MAGIC = 0xCAFE7478` est absent du dernier secteur.
+*semer* le stockage flash au tout premier démarrage, et uniquement si le mot magique
+`CONFIG_MAGIC` est absent du secteur de configuration.
 
-Ensuite, `main.c:77` se connecte avec `local_storage->wifi_1_ssid`, lu depuis la flash.
-Une carte qui a déjà démarré une fois garde son ancien SSID pour toujours, quel que soit
-le `cmake`. Voir §9.4 pour forcer la remise à zéro.
+Ensuite, le firmware se connecte avec `local_storage->wifi_1_ssid`, lu depuis la flash.
+Une carte qui a déjà démarré une fois garde son SSID quel que soit le `cmake`.
+
+Pour en changer sans recompiler, laisser la connexion échouer deux fois : le boîtier ouvre
+son propre point d'accès et sert un formulaire (§5.1). C'est le chemin prévu pour un
+client. Le reflashage reste possible, voir §9.4.
 
 ### 0.3 Un écran mort ressemble à un rafraîchissement réussi
 
@@ -324,6 +327,54 @@ est notée en §10, pas appliquée.
 
 `wifi/wifi_setup.c` : `cyw43_arch_init()`, mode station, `WPA2 AES PSK` **en dur**. Un
 réseau ouvert ou WPA3 échouera. Pas de reconnexion automatique.
+
+Les identifiants viennent de la flash. Ceux passés au `cmake` ne servent qu'à semer le
+stockage au tout premier démarrage (§0.2).
+
+#### Le portail captif
+
+Un client ne peut pas nous donner son SSID à la compilation, et il n'a pas de câble à
+brancher : le Pico 2 W n'a pas d'Ethernet. Le boîtier sert donc lui-même la page de
+saisie, par la seule interface qu'il possède.
+
+`main.c` essaie le réseau enregistré **deux fois** avant de basculer. Un seul essai
+suffirait à ce qu'un routeur redémarrant en même temps que le boîtier déclenche une
+reconfiguration dont personne n'a besoin. Le réseau enregistré passe toujours en premier :
+tant que le boîtier sait se connecter, le portail n'existe pas.
+
+Au deuxième échec, `wifi/wifi_portal.c` :
+
+```
+cyw43_arch_enable_ap_mode("EdelCheck-XXXX", "edelcheck", WPA2)
+   -> serveur DHCP sur 192.168.4.1        wifi/dhcpserver/  (pico-examples, MIT)
+   -> serveur HTTP sur le port 80         GET / -> formulaire, POST / -> enregistrement
+   -> storage_save_wifi(ssid, mot_de_passe)
+   -> retour en mode station, la boucle de connexion reprend
+```
+
+Le nom du point d'accès finit par les quatre derniers caractères de l'identifiant unique
+de la carte : deux boîtiers côte à côte ne portent pas le même. L'écran affiche ce nom et
+le mot de passe, qui est constant (`PORTAIL_MOT_DE_PASSE` dans `main.c`). Un mot de passe,
+et non un réseau ouvert : sur un réseau ouvert, un passant à portée verrait le formulaire
+et pourrait pousser ses propres identifiants dans le boîtier.
+
+Le portail rend la main au bout de cinq minutes, puis la boucle recommence. Un boîtier
+laissé seul ne reste donc pas indéfiniment en point d'accès.
+
+Deux détails qui ont coûté du temps :
+
+* **lwIP livre un POST en plusieurs segments.** Le formulaire tenait dans un seul paquet
+  en test et se coupait en deux avec un SSID plus long, ce qui donnait un mot de passe
+  tronqué et une connexion qui échouait sans rien dire. `requete_complete()` accumule
+  jusqu'à `Content-Length` avant de traiter quoi que ce soit.
+* **`SOF_REUSEADDR` (via `SO_REUSE` dans `lwipopts.h`).** Sans lui, le port 80 reste en
+  `TIME_WAIT` après un premier passage par le portail et le second échoue à se lier.
+
+#### Ce que ça ne fait pas
+
+Le portail écrit le réseau, rien d'autre. Il ne configure pas le serveur, ne déclenche pas
+l'appairage et ne montre aucun état du boîtier. C'est un écran de secours, pas une
+interface d'administration.
 
 ### 5.2 Le client HTTP
 
