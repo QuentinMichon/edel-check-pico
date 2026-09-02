@@ -225,3 +225,26 @@ bool storage_clear_enrollment(void) {
 
     return save_local_storage(&g_config);
 }
+
+bool storage_save_wifi(const char *ssid, const char *password) {
+    if (ssid == NULL || ssid[0] == '\0') {
+        return false;
+    }
+    if (!load_local_storage(&g_config)) {
+        printf("[storage] enregistrement wifi impossible : stockage non initialise\n");
+        return false;
+    }
+
+    strncpy(g_config.wifi_1_ssid, ssid, sizeof(g_config.wifi_1_ssid) - 1);
+    g_config.wifi_1_ssid[sizeof(g_config.wifi_1_ssid) - 1] = '\0';
+    strncpy(g_config.wifi_1_password, password ? password : "",
+            sizeof(g_config.wifi_1_password) - 1);
+    g_config.wifi_1_password[sizeof(g_config.wifi_1_password) - 1] = '\0';
+
+    if (!save_local_storage(&g_config)) {
+        printf("[storage] ecriture flash du reseau echouee\n");
+        return false;
+    }
+    printf("[storage] reseau enregistre : %s\n", g_config.wifi_1_ssid);
+    return true;
+}

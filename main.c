@@ -10,6 +10,15 @@
 #include "navigation/nav.h"
 #include "screen/epd_driver.h"
 #include "screen/epd_text.h"
+
+// Le point d acces est protege : sans mot de passe, n importe qui a portee pourrait
+// reconfigurer le reseau du boitier. Il est imprime sur la notice du materiel.
+#include "pico/unique_id.h"
+#include "wifi/wifi_portal.h"
+
+// Le point d acces est protege : sans mot de passe, n importe qui a portee pourrait
+// reconfigurer le reseau du boitier. Il est imprime sur la notice du materiel.
+#define PORTAIL_MOT_DE_PASSE "edelcheck"
 #include "gpio/gpio_driver.h"
 #include "storage/storage_manager.h"
 #include "enrollment/enrollment.h"
@@ -75,6 +84,26 @@ struct repeating_timer timer;
 /*=================================================================
  *  Main
  *=================================================================*/
+// Ecran d attente quand le reseau manque. Avec ap != NULL, il indique aussi comment
+// reconfigurer le boitier depuis un telephone.
+static void afficher_pas_de_reseau(const char *ssid, const char *ap) {
+    static char ligne[64];
+
+    epd_fb_clear(true);
+    epd_fb_write_big_centered(60, "PAS DE RESEAU", 3);
+    snprintf(ligne, sizeof(ligne), "%s", ssid && ssid[0] ? ssid : "AUCUN CONFIGURE");
+    epd_fb_write_big_centered(110, ligne, 2);
+
+    if (ap) {
+        epd_fb_write_big_centered(170, "CONNECTEZ VOUS AU RESEAU", 2);
+        epd_fb_write_big_centered(205, ap, 2);
+        epd_fb_write_big_centered(245, "PUIS 192.168.4.1", 2);
+    } else {
+        epd_fb_write_big_centered(200, "NOUVELLE TENTATIVE", 2);
+    }
+    epd_display_update_partial();
+}
+
 int main(int argc, char *argv[]) {
     stdio_init_all();   // init USB
     sleep_ms(1000);     // time for picocom to print initial log
@@ -121,19 +150,33 @@ int main(int argc, char *argv[]) {
     // enumere mais plus rien ne tournait, et seule une coupure d'alimentation relancait le
     // boitier. Sur un comptoir, un boitier allume avant le routeur restait eteint pour la
     // journee, sans que l'ecran ne dise pourquoi.
+    // Le reseau enregistre passe TOUJOURS en premier. Le portail n est qu un recours :
+    // tant que le boitier sait se connecter, rien ne change pour lui.
+    //
+    // Deux essais avant d ouvrir le point d acces, pas un seul : un routeur qui redemarre
+    // en meme temps que le boitier ne doit pas declencher une reconfiguration.
     for (int essai = 1; !wifi_connect(local_storage->wifi_1_ssid,
                                       local_storage->wifi_1_password, 30000); essai++) {
-        printf("[wifi] echec (essai %d), nouvelle tentative dans 10 s\n", essai);
+        printf("[wifi] echec (essai %d)\n", essai);
 
-        static char ligne[64];
-        epd_fb_clear(true);
-        epd_fb_write_big_centered(110, "PAS DE RESEAU", 3);
-        snprintf(ligne, sizeof(ligne), "%s", local_storage->wifi_1_ssid);
-        epd_fb_write_big_centered(165, ligne, 2);
-        epd_fb_write_big_centered(210, "NOUVELLE TENTATIVE", 2);
-        epd_display_update_partial();
+        if (essai < 2) {
+            afficher_pas_de_reseau(local_storage->wifi_1_ssid, NULL);
+            sleep_ms(5000);
+            continue;
+        }
 
-        sleep_ms(10000);
+        // Nom du point d acces derive de l identifiant materiel : deux boitiers cote a
+        // cote ne doivent pas porter le meme.
+        char board[2 * PICO_UNIQUE_BOARD_ID_SIZE_BYTES + 1];
+        pico_get_unique_board_id_string(board, sizeof(board));
+        static char ap[32];
+        snprintf(ap, sizeof(ap), "EdelCheck-%s", board + strlen(board) - 4);
+
+        afficher_pas_de_reseau(local_storage->wifi_1_ssid, ap);
+        if (wifi_portal_run(ap, PORTAIL_MOT_DE_PASSE, 300000)) {
+            local_storage = get_local_storage();
+            printf("[wifi] nouveau reseau configure, tentative de connexion\n");
+        }
     }
 
     sleep_ms(500);

@@ -58,6 +58,12 @@
 #define LWIP_DHCP                   1
 #define LWIP_IPV4                   1
 #define LWIP_TCP                    1
+
+// Le portail de configuration ouvre et ferme le port 80 a chaque cycle. Sans reutilisation
+// d adresse, une connexion encore en TIME_WAIT fait echouer le bind suivant : le boitier
+// ne peut alors plus rouvrir son point d acces avant l expiration du delai. Mesure sur la
+// carte : impossible d ecouter sur le port 80 apres trois cycles.
+#define SO_REUSE                    1
 #define LWIP_UDP                    1
 #define LWIP_DNS                    1
 #define LWIP_TCP_KEEPALIVE          1

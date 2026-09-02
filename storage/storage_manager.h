@@ -85,4 +85,11 @@ bool storage_save_enrollment(const char *device_id, const char *device_secret,
 // redevenu anonyme.
 bool storage_clear_enrollment(void);
 
+// Enregistre le reseau que le boitier doit rejoindre. Ecrit wifi_1, les deux autres
+// emplacements restent libres pour un reseau de secours.
+//
+// Volontairement separe de storage_save_enrollment : changer de reseau ne doit pas
+// toucher a l identite du boitier, ni l inverse.
+bool storage_save_wifi(const char *ssid, const char *password);
+
 #endif //EDEL_CHECK_PICO_STORAGE_MANAGER_H

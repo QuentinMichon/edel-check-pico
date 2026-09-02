@@ -53,6 +53,8 @@ add_executable(${PROJECT_NAME} main.c
         wifi/wifi_setup.c
         wifi/http_client.c
         wifi/ca_letsencrypt.c
+        wifi/dhcpserver/dhcpserver.c
+        wifi/wifi_portal.c
         navigation/nav.c
         gpio/gpio_driver.c
         screen/epd_driver.c
@@ -90,6 +92,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
         ${CMAKE_CURRENT_LIST_DIR}/config
         ${CMAKE_CURRENT_LIST_DIR}/wifi
+        ${CMAKE_CURRENT_LIST_DIR}/wifi/dhcpserver
         ${CMAKE_CURRENT_LIST_DIR}/json
 )
 
