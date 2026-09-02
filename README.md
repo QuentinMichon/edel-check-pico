@@ -5,7 +5,7 @@ numérique (e-ID suisse, EUDI Wallet, permis de conduire mobile) sans révéler 
 nécessaire.
 
 Ce dépôt contient uniquement l'embarqué. Le portail, la base, le broker MQTT et le
-simulateur vivent dans le dépôt voisin [`edelcheck`](../edelcheck).
+simulateur vivent dans le dépôt voisin [`edelcheck`](https://gitlab.com/hliosone/edelcheck).
 
 | | |
 |---|---|
@@ -162,8 +162,8 @@ n'écrit rien dans le stockage persistant de la carte.
 | [`tests/unit/`](tests/unit/) | Tests unitaires, exécutés sur PC |
 | [`tests/mqtt_test/`](tests/mqtt_test/) | Banc de test MQTT sur TLS |
 | [`tests/screen_test/`](tests/screen_test/) | Banc de test du panneau e-ink |
-| [`../edelcheck/docs/mqtt-contract.md`](../edelcheck/docs/mqtt-contract.md) | Contrat MQTT v1.0 **figé** - ce que le cloud publie et attend |
-| [`../edelcheck/docs/ARCHITECTURE.md`](../edelcheck/docs/ARCHITECTURE.md) | Architecture d'ensemble du produit |
+| [`docs/mqtt-contract.md` du cloud](https://gitlab.com/hliosone/edelcheck/-/blob/main/docs/mqtt-contract.md) | Contrat MQTT v1.0 **figé** - ce que le cloud publie et attend |
+| [`docs/ARCHITECTURE.md`](https://gitlab.com/hliosone/edelcheck/-/blob/main/docs/ARCHITECTURE.md) | Architecture d'ensemble du produit |
 
 ## Limitations connues
 
