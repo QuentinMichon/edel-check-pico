@@ -116,9 +116,24 @@ int main(int argc, char *argv[]) {
 
     // Les identifiants wifi viennent de la flash, poses a l'appairage. Les changer demande
     // aujourd'hui un reflashage : une page de reglages sur le boitier reste a ecrire.
-    if (!wifi_connect(local_storage->wifi_1_ssid, local_storage->wifi_1_password, 30000)) {
-        printf("impossible de continuer sans wifi\n");
-        return -1;
+    //
+    // On reessaie au lieu de rendre la main. Un return ici terminait main() : l'USB restait
+    // enumere mais plus rien ne tournait, et seule une coupure d'alimentation relancait le
+    // boitier. Sur un comptoir, un boitier allume avant le routeur restait eteint pour la
+    // journee, sans que l'ecran ne dise pourquoi.
+    for (int essai = 1; !wifi_connect(local_storage->wifi_1_ssid,
+                                      local_storage->wifi_1_password, 30000); essai++) {
+        printf("[wifi] echec (essai %d), nouvelle tentative dans 10 s\n", essai);
+
+        static char ligne[64];
+        epd_fb_clear(true);
+        epd_fb_write_big_centered(110, "PAS DE RESEAU", 3);
+        snprintf(ligne, sizeof(ligne), "%s", local_storage->wifi_1_ssid);
+        epd_fb_write_big_centered(165, ligne, 2);
+        epd_fb_write_big_centered(210, "NOUVELLE TENTATIVE", 2);
+        epd_display_update_partial();
+
+        sleep_ms(10000);
     }
 
     sleep_ms(500);
