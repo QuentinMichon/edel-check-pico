@@ -12,6 +12,7 @@
 #include "session/session.h"
 #include "screen/epd_text.h"
 #include "power/power.h"
+#include "boutons/boutons.h"
 
 
 static nav_page_t state = NAV_PAGE_MENU;
@@ -130,12 +131,7 @@ void nav_redraw(void) {
 /*
  *      GESTION DES BOUTON + MENU
  */
-void poll_usb_nav_key(void) {
-    int c = getchar_timeout_us(0);
-    if (c == PICO_ERROR_TIMEOUT) {
-        return;
-    }
-
+static void traiter_touche(int c) {
     switch (state) {
         // ========================== MENU =================================
         case NAV_PAGE_MENU:
@@ -155,8 +151,9 @@ void poll_usb_nav_key(void) {
                 case 'x':
                     running = false;
                     printf("EXIT\n");
+                    break;
                 default:
-                    printf("poll_usb_nav_key: NOT SUPPORTED\n");
+                    printf("[nav] touche sans effet sur cette page\n");
                     break;
             }
             break;
@@ -167,7 +164,7 @@ void poll_usb_nav_key(void) {
                     go_to_menu();
                     break;
                 default:
-                    printf("poll_usb_nav_key: NOT SUPPORTED\n");
+                    printf("[nav] touche sans effet sur cette page\n");
                     break;
             }
             break;
@@ -187,10 +184,25 @@ void poll_usb_nav_key(void) {
                     go_to_menu();
                     break;
                 default:
-                    printf("poll_usb_nav_key: NOT SUPPORTED\n");
+                    printf("[nav] touche sans effet sur cette page\n");
                     break;
             }
             break;
 
+    }
+}
+
+// Le bouton passe avant le clavier : c'est l'entree du boitier pose sur un comptoir, le
+// clavier n'est qu'une commodite tant qu'un cable USB est branche.
+void nav_poll_input(void) {
+    char bouton = boutons_lire();
+    if (bouton) {
+        traiter_touche(bouton);
+        return;
+    }
+
+    int c = getchar_timeout_us(0);
+    if (c != PICO_ERROR_TIMEOUT) {
+        traiter_touche(c);
     }
 }

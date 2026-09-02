@@ -15,7 +15,9 @@ typedef enum NAV_PAGE {
     NAV_PAGE_VERIFY,      // les profils recus du cloud, un par touche
 } nav_page_t;
 
-void poll_usb_nav_key(void);
+// Traite au plus une entree, venue d'un bouton ou du clavier USB. Les deux produisent le
+// meme caractere : '1' a '4'.
+void nav_poll_input(void);
 
 // Redessine la page courante. Sert a reprendre la main apres un ecran transitoire.
 void nav_redraw(void);

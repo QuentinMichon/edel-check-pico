@@ -174,9 +174,20 @@ Deux pièges pour qui ajouterait un périphérique :
   second esclave sur SPI0 sans comprendre ça donne des collisions de sélection.
 * **GP16 est immobilisé** pour un MISO inutilisé. Il est récupérable.
 
-Matériel prévu par le projet mais **absent du code** : les 4 boutons poussoirs (aucun GPIO
-d'entrée en dehors de BUSY), le contrôleur NFC PN7160, la jauge de batterie BQ27441 -
-l'icône batterie affichée est une image fixe « 80 % », pas une mesure.
+Les 4 boutons poussoirs, câblés entre la broche et la masse, tirette interne, front
+descendant (`boutons/boutons.c`) :
+
+| Bouton | GPIO |
+|---|---|
+| B1 | **9** |
+| B2 | **11** |
+| B3 | **10** |
+| B4 | **8** |
+
+L'ordre n'est pas celui des GPIO : c'est l'ordre physique des touches sur la carte.
+
+Matériel prévu par le projet mais **absent du code** : le contrôleur NFC PN7160 et la jauge
+de batterie BQ27441 - le niveau de batterie est lu sur VSYS (§6), pas sur la jauge.
 
 ---
 

@@ -56,6 +56,7 @@ add_executable(${PROJECT_NAME} main.c
         wifi/dhcpserver/dhcpserver.c
         wifi/wifi_portal.c
         navigation/nav.c
+        boutons/boutons.c
         gpio/gpio_driver.c
         screen/epd_driver.c
         screen/epd_text.c

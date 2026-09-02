@@ -15,6 +15,7 @@
 // reconfigurer le reseau du boitier. Il est imprime sur la notice du materiel.
 #include "pico/unique_id.h"
 #include "wifi/wifi_portal.h"
+#include "boutons/boutons.h"
 
 // Le point d acces est protege : sans mot de passe, n importe qui a portee pourrait
 // reconfigurer le reseau du boitier. Il est imprime sur la notice du materiel.
@@ -128,6 +129,7 @@ int main(int argc, char *argv[]) {
 
     // --- init GPIO ---
     init_gpio();
+    boutons_init();
 
     // --- init screen ---
     epd_init();
@@ -229,7 +231,7 @@ int main(int argc, char *argv[]) {
     add_repeating_timer_ms(-5000, periodic_check_callback, NULL, &timer);
     
     while (running) {
-        poll_usb_nav_key();
+        nav_poll_input();
         edel_mqtt_poll();   // reconnecte le broker si la connexion est tombee
         sleep_ms(10);
     }
