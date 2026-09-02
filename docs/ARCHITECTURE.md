@@ -174,8 +174,8 @@ Deux pièges pour qui ajouterait un périphérique :
   second esclave sur SPI0 sans comprendre ça donne des collisions de sélection.
 * **GP16 est immobilisé** pour un MISO inutilisé. Il est récupérable.
 
-Les 4 boutons poussoirs, câblés entre la broche et la masse, tirette interne, front
-descendant (`boutons/boutons.c`) :
+Les 4 boutons poussoirs, câblés entre la broche et la masse, tirette interne, lus par
+scrutation dans la boucle principale (`boutons/boutons.c`) :
 
 | Bouton | GPIO |
 |---|---|
@@ -185,6 +185,11 @@ descendant (`boutons/boutons.c`) :
 | B4 | **8** |
 
 L'ordre n'est pas celui des GPIO : c'est l'ordre physique des touches sur la carte.
+
+**Ne pas passer ces broches en interruption.** Une interruption GPIO sur ces quatre broches
+empêche le SSD1683 de répondre : BUSY ne monte plus jamais, chaque rafraîchissement échoue
+en silence et la dalle garde son image. Le firmware paraît figé alors qu'il tourne, réseau
+et MQTT compris. Constaté par A/B sur le matériel, en désarmant les seules interruptions.
 
 Matériel prévu par le projet mais **absent du code** : le contrôleur NFC PN7160 et la jauge
 de batterie BQ27441 - le niveau de batterie est lu sur VSYS (§6), pas sur la jauge.
