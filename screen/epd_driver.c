@@ -500,17 +500,39 @@ void epd_display_update_full(void) {
  *      devenir la référence du prochain diff.
  */
 void epd_display_update_partial(void) {
-    // Passe par le rafraichissement complet.
-    //
-    // Le 03.09.2026 la dalle a cesse de repondre : BUSY ne monte plus sur aucun
-    // rafraichissement, complet compris, et l'ecran garde par remanence la derniere image
-    // qu'il a reussi a peindre. La cause est materielle, pas ici.
-    //
-    // Tant que le pilote n'a aucun retour de la dalle, la sequence complete est le pari le
-    // plus sur : elle est autonome et ne depend pas d'un plan de reference que le
-    // differentiel suppose deja peint. On paie 2,3 s au lieu de 638 ms. La sequence
-    // differentielle reste dans l'historique git.
-    epd_display_update_full();
+    uint8_t cmd = 0x00;
+    uint8_t data = 0x00;
+
+    // Seule la nouvelle image part dans 0x24
+    epd_write_plane(0x24);
+
+    // Display Update Control 1 : 0x00 = plan 0x26 actif
+    cmd = 0x21;
+    epd_send_command(&cmd);
+    data = 0x00;
+    epd_send_data(&data);
+    data = 0x00;
+    epd_send_data(&data);
+
+    // 0x22 = 0xFC : enable clock -> enable analog -> load temperature ->
+    // load LUT (mode 2, waveform différentielle) -> display. Contrairement
+    // au full (0xF7), l'analogique n'est PAS coupé à la fin : les partiels
+    // consécutifs s'enchaînent plus vite. (Valeur du driver de référence.)
+    cmd = 0x22;
+    epd_send_command(&cmd);
+    data = 0xFC;
+    epd_send_data(&data);
+
+    cmd = 0x20;
+    epd_send_command(&cmd);
+
+    bool ok = epd_wait_busy(5000);
+
+    // Resynchronise les DEUX plans avec l'image affichée
+    epd_write_plane(0x26);
+    epd_write_plane(0x24);
+
+    printf("[screen] epd_display_update_partial: %s\n", ok ? "termine." : "TIMEOUT.");
 }
 
 

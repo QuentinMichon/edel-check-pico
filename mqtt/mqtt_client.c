@@ -474,10 +474,12 @@ void edel_mqtt_poll(void) {
             epd_display_update_partial();
             printf("[img] affichee\n");
 
-            // La dalle ne repond plus : sa ligne de reset est en court-circuit avec le
-            // 3V3, le panneau ne s'initialise jamais. L'image est bien la, en RAM. On la
-            // sort en texte pour qu'elle reste montrable, et scannable une fois projetee.
+            // Rendu texte du framebuffer, utile quand la dalle ne repond pas : l'image
+            // reste montrable, et un QR ainsi projete reste scannable. Hors service par
+            // defaut, il ecrit 60 000 caracteres et prend cinq secondes sur le port serie.
+#ifdef EDEL_ECRAN_SUR_CONSOLE
             epd_console_dump(2);
+#endif
 
             // Sans ceci, la dalle restait sur le verdict jusqu'a la prochaine touche : le
             // comptoir se retrouvait devant un ecran qui n'indique plus quoi appuyer.
