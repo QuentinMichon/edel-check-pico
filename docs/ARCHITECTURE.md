@@ -558,37 +558,43 @@ Pages `SETTINGS` (wifi, pairing) : squelettes vides, `printf("NA")`.
 
 ---
 
-## 8. La divergence avec le contrat MQTT - à lire avant de planifier quoi que ce soit
+## 8. Le contrat MQTT : ce qui est implémenté, et les deux écarts qui restent
 
-`docs/mqtt-contract.md` du cloud est en **v1.0, figé**, et modifiable seulement par
-accord explicite des deux côtés. Ce firmware ne l'implémente pas. Ce n'est pas un retard
-de détail : les deux architectures sont incompatibles telles quelles.
+`docs/mqtt-contract.md` du cloud est en **v1.0, figé**, modifiable seulement par accord
+explicite des deux côtés. Ce firmware l'implémente de bout en bout, validé sur le matériel
+contre l'infrastructure de production.
 
-| Sujet | Contrat MQTT v1.0 | Ce firmware |
+| Sujet | Contrat v1.0 | Ce firmware |
 |---|---|---|
-| Transport | MQTT 3.1.1 / TLS **8883**, `client_id = dev-{device_id}`, `clean_session=true`, LWT retenu | **aucun code MQTT** |
-| Identité | enrôlement `POST /provisioning/claim` + `/poll`, code d'appairage affiché, secret servi **une seule fois** | `client_id`/`client_secret` OAuth2 en dur dans un header |
-| Wi-Fi | configuré à l'appairage | en dur au build, semé en flash |
-| Origine de l'image | **le cloud pousse des pixels déjà tramés** sur `dev/{id}/img` | le boîtier appelle l'API et **dessine le QR lui-même** |
-| Format image | **2 bits/pixel, 4 niveaux de gris**, 400x300 = 30 000 o, 8 fragments de 4088 o, `img_id` u32 + `seq`/`total` u16 big-endian | **1 bit/pixel**, 15 000 o, tout en RAM |
-| Cycle | `session_open` → `session_ready` → fragments → `result` → fragments | un seul POST synchrone bloquant |
-| Rotation de secret | `rotate` / `rotate_ack`, persistance **avant** l'accusé | absent |
-| OTA | manifeste signé, signature vérifiée contre une clé embarquée | absent |
-| `hw_id` | `pico_get_unique_board_id()` | jamais appelé |
+| Transport | MQTT 3.1.1 / TLS **8883**, `client_id = dev-{device_id}`, `clean_session=true`, LWT retenu | conforme |
+| Identité | `POST /provisioning/claim` puis `/poll`, code d'appairage affiché, secret servi **une seule fois** | conforme, secret écrit en flash sur deux secteurs alternés avec CRC |
+| `hw_id` | `pico_get_unique_board_id()` | conforme (`enrollment/enrollment.c`) |
+| Wi-Fi | configuré à l'appairage | saisi sur le boîtier par portail captif (§5) |
+| Origine de l'image | le cloud pousse des pixels déjà tramés sur `dev/{id}/img` | conforme, le boîtier ne dessine plus rien lui-même |
+| Cadrage des fragments | 8 fragments de 4 088 o, en-tête `img_id` u32 + `seq`/`total` u16 big-endian | conforme |
+| Cycle | `session_open` → fragments → `result` → fragments | conforme |
+| Messages montants | `session_open`, `img_abort`, `rotate_ack` | les deux premiers sont émis |
+| Rotation de secret | `rotate` / `rotate_ack`, persistance **avant** l'accusé | **absent** |
+| OTA | manifeste signé, vérifié contre une clé embarquée | **absent** |
 
-**Le point le plus coûteux : les 4 niveaux de gris.** Ce n'est pas un paramètre à changer.
-Le pipeline actuel est mono-plan (`epd_write_plane(0x24)`, un bit par pixel, le plan `0x26`
-servant de référence de diff). Le niveau de gris sur SSD1683 se fait en pilotant **deux
-plans comme deux plans de bits** avec une LUT dédiée. Le framebuffer double de taille
-(30 000 o), la convention de bits change, `epd_fb_set_pixel` et tous les assets changent
-de format, et `epd_display_update_partial()` perd son sens actuel. C'est une réécriture du
-driver, pas un ajustement.
+### Le seuillage 2 bits vers 1 bit n'est pas un écart au contrat
 
-**Question ouverte à trancher en équipe, pas seul :** est-ce le firmware qui rejoint le
-contrat, ou le contrat qui s'aligne sur ce que le firmware sait faire (1bpp, rendu local) ?
-Le contrat dit qu'il faut un accord explicite des deux côtés. Le simulateur navigateur du
-dépôt `edelcheck` implémente déjà, lui, le côté contrat - donc la démonstration cloud
-fonctionne sans ce firmware.
+Le cloud envoie 4 niveaux de gris, la dalle est pilotée en 1 bit par pixel. Le firmware
+**seuille à la volée** pendant la réception : un fragment de 4 088 octets devient exactement
+2 044 octets, écrits à `seq * 2044`. Les huit fragments couvrent exactement les 15 000
+octets du framebuffer, donc aucun tampon intermédiaire n'existe, ce qui compte sur une carte
+dont la pile fait 4 Ko.
+
+Le format sur le fil est celui du contrat. Seul le rendu local est mono-plan. Passer la
+dalle en 4 niveaux réels demanderait de piloter deux plans avec une LUT dédiée, de doubler
+le framebuffer et de refaire tous les assets : c'est une réécriture du pilote, et elle n'est
+pas nécessaire pour afficher un QR code et un verdict.
+
+### Ce qui reste ouvert
+
+La **rotation de secret** et la **mise à jour à distance** ne sont pas implémentées. Pour
+l'OTA, le format du manifeste est figé dans le contrat, le mécanisme ne l'est pas : flasher
+un boîtier demande encore un câble.
 
 ---
 
@@ -757,50 +763,40 @@ Empreinte : 92 Ko de code, 17,6 Ko de RAM (dont les 15 Ko du framebuffer).
 
 ---
 
-## 10. Dette technique repérée - constatée, non corrigée
+## 10. Dette technique, constatée et non corrigée
 
-Aucun de ces points n'a été modifié : le dépôt est resté intact à la demande.
+L'audit du 22 août listait dix-huit points. La plupart ont été traités depuis : la
+vérification du certificat TLS, le secret OAuth2 sorti du code, le `.gitignore`, le
+`case 'x'` sans `break`, le `TODO` de verrou sur la flash, les identifiants imprimés au
+démarrage, et le câblage des quatre boutons. Voici ce qui reste.
 
 | Où | Constat |
 |---|---|
-| `wifi/http_client.h:30-31` | **secret OAuth2 committé** - à révoquer et sortir du dépôt (§5.3) |
-| `http_client.c:386` | **TLS sans vérification de certificat** (§5.2) |
-| racine | **pas de `.gitignore`** - `build/`, `.idea/`, `.DS_Store` sont ou seront committés |
-| `screen/epd_driver.c:66` | `epd_wait_busy` retourne `true` même si BUSY n'est jamais monté (§0.3) |
-| `CMakeLists.txt` | `DEBUG_PRINT` jamais défini → tous les diagnostics écran compilés hors binaire (§0.4) |
-| `navigation/nav.c` | `case 'x':` **tombe dans `default:`** (pas de `break`) → « EXIT » puis « NOT SUPPORTED » |
-| `main.c` vs `nav.c` | `display_menu(true, 4, "check","settings","post token","mcquenty")` au boot, `display_menu(false, 2, ...)` ensuite - deux menus différents, dont un de test |
-| `main.c:24,92` | `flags_irq` et le timer 5 s : le flag est levé, **jamais lu** |
-| `storage_manager.c:16` | commentaire « 2 secteurs = 8192 octets » faux - un seul secteur |
-| `storage_manager.c` | `get_local_storage()` sans mutex (`TODO` explicite) |
-| `main.c:55-57` | mot de passe Wi-Fi et bearer token imprimés en clair au démarrage |
-| `http_client.h` | commentaire « pas de support de `Transfer-Encoding: chunked` » périmé - c'est implémenté |
-| `assets/full_screen/epd_image_scanner.h` | asset `epd_scan` jamais utilisé |
-| `screen/epd_driver.c` | envoi octet par octet avec bascule de CS (§4.6) - un `spi_write_blocking` global diviserait le temps de refresh |
-| assets | `static const` dans des headers : chaque `.c` qui inclut `epd_driver.h` embarque sa propre copie des images qu'il utilise |
-| `wifi_setup.c` | `CYW43_AUTH_WPA2_AES_PSK` en dur, pas de reconnexion |
-| `nav.c:122` | `TODO` : pas de renouvellement du token quand il a expiré |
+| historique git | le **secret OAuth2** a été retiré du code mais reste dans l'historique : à révoquer et régénérer |
+| `screen/epd_driver.c` | `epd_wait_busy()` retourne `true` même si BUSY n'est jamais monté. Un rafraîchissement raté passe donc pour un succès, et c'est ce qui a fait croire à une panne matérielle pendant une heure |
+| `wifi/` | **aucune reconnexion** une fois la boucle principale lancée : si le réseau disparaît, le boîtier réessaie MQTT indéfiniment sur `ERR_RTE` |
+| `navigation/nav.c` | les pages `SETTINGS` (wifi, pairing) sont des squelettes : les touches n'y font rien |
+| `session/` | l'abandon d'une session est **local**. Si l'opérateur abandonne puis relance aussitôt, le verdict tardif de la première s'affichera : le drapeau est remis à zéro à chaque `session_open`. Le fermer demande de comparer les `session_id` |
+| `screen/epd_driver.c` | envoi SPI octet par octet avec bascule de CS (§4.6) : un `spi_write_blocking` global diviserait le temps de rafraîchissement |
+| `assets/` | `static const` dans des en-têtes : chaque `.c` qui les inclut embarque sa propre copie des images |
+| outillage | `epd_paint.html`, qui a généré les glyphes de `epd_fb_write_typo`, est absent des deux dépôts. Pour du texte à taille libre, utiliser `screen/epd_text.c`, qui trace une matrice 5x7 sans aucun asset |
 
 ---
 
-## 11. Prochaines étapes proposées
+## 11. Prochaines étapes
 
-Par ordre de dépendance, du plus bloquant au plus confortable :
+Par ordre d'utilité.
 
-1. **Installer la chaîne de compilation** et valider §9 par un build réel. Rien n'est
-   possible avant.
-2. **Retrouver ou réécrire `epd_paint.html`** (§4.5). Sans lui, aucune nouvelle image.
-   `check_fullscreen.png` sert de test de non-régression du convertisseur.
-3. **Révoquer le secret OAuth2** et le sortir du dépôt.
-4. **Un binaire de test écran minimal** : ni Wi-Fi ni stockage, juste `init_gpio` +
-   `epd_init` + des motifs (damier, rectangles, texte, chronométrage full vs partiel).
-   C'est le moyen le plus rapide de qualifier le panneau, et ça contourne §0.2 et le
-   `return -1` sur échec Wi-Fi.
-5. **Rendre `epd_wait_busy` honnête** (retourner `false` si BUSY n'est jamais monté),
-   sinon tous les tests d'écran mentent.
-6. **Câbler les 4 boutons** - la navigation série est un échafaudage de développement.
-7. **Trancher la question MQTT** (§8) en équipe, avant d'écrire la moindre ligne dans
-   cette direction.
+1. **Rendre `epd_wait_busy()` honnête** : retourner `false` si BUSY n'est jamais monté.
+   Tant qu'il ment, aucun diagnostic d'écran n'est fiable.
+2. **Révoquer le secret OAuth2** présent dans l'historique git, et le régénérer.
+3. **Ajouter une reconnexion Wi-Fi** dans la boucle principale, avec repli sur le portail
+   captif après plusieurs échecs.
+4. **Comparer les `session_id`** pour fermer le cas de l'abandon suivi d'une relance.
+5. **Implémenter la rotation de secret** (`rotate` / `rotate_ack`), déjà spécifiée au
+   contrat.
+6. **La mise à jour à distance**, dont le format de manifeste est figé mais pas le
+   mécanisme.
 
 ---
 
@@ -809,3 +805,4 @@ Par ordre de dépendance, du plus bloquant au plus confortable :
 | Version | Date | Changement |
 |---|---|---|
 | 1.0 | 22 août 2026 | Rédaction initiale, à partir du dépôt au commit `eb54350` |
+| 2.0 | 3 septembre 2026 | Contrat MQTT implémenté, boutons, portail captif, batterie sur VSYS ; sections 8, 10 et 11 refaites |
