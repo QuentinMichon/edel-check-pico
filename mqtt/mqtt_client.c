@@ -20,6 +20,7 @@
 #include "image/image_rx.h"
 #include "session/session.h"
 #include "screen/epd_driver.h"
+#include "screen/epd_console.h"
 #include "screen/epd_text.h"
 #include "power/power.h"
 
@@ -472,6 +473,11 @@ void edel_mqtt_poll(void) {
         } else {
             epd_display_update_partial();
             printf("[img] affichee\n");
+
+            // La dalle ne repond plus : sa ligne de reset est en court-circuit avec le
+            // 3V3, le panneau ne s'initialise jamais. L'image est bien la, en RAM. On la
+            // sort en texte pour qu'elle reste montrable, et scannable une fois projetee.
+            epd_console_dump(2);
 
             // Sans ceci, la dalle restait sur le verdict jusqu'a la prochaine touche : le
             // comptoir se retrouvait devant un ecran qui n'indique plus quoi appuyer.

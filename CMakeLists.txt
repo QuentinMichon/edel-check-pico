@@ -59,6 +59,7 @@ add_executable(${PROJECT_NAME} main.c
         boutons/boutons.c
         gpio/gpio_driver.c
         screen/epd_driver.c
+        screen/epd_console.c
         screen/epd_text.c
         storage/storage_manager.c
         enrollment/enrollment.c
