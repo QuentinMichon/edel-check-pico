@@ -117,6 +117,10 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
         # jamais. Un delai fini laisse les traces lisibles quand un terminal est ouvert, et
         # laisse demarrer quand il n'y en a pas.
         PICO_STDIO_USB_CONNECT_WAIT_TIMEOUT_MS=3000
+
+        # Broche de reset de l'ecran. Par defaut GP22, celle du montage d'origine.
+        # A surcharger si le fil doit etre deplace : -DEDEL_PIN_RST=26
+        $<$<BOOL:${EDEL_PIN_RST}>:PIN_RST=${EDEL_PIN_RST}>
         WIFI_SSID=\"${WIFI_SSID}\"
         WIFI_PASSWORD=\"${WIFI_PASSWORD}\"
 
