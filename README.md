@@ -36,14 +36,21 @@ cloud contacte le service de vérification, rend un QR code en 400x300, et le po
 fragments. Le boîtier les seuille à la volée vers son framebuffer et rafraîchit l'écran en
 638 ms. Le citoyen scanne, le verdict redescend de la même façon.
 
-La navigation se fait **au clavier, par le port série USB** (touches `1`-`4`, `x`) - les
-boutons poussoirs ne sont pas encore câblés côté logiciel.
+La navigation se fait **aux quatre boutons poussoirs**, ou au clavier par le port série USB
+(touches `1`-`4`, `x`) tant qu'un câble est branché. Les deux sources produisent le meme
+caractere. Les broches sont lues dans la boucle principale, pas par interruption : une
+interruption sur ces broches empeche l'ecran de repondre.
+
+**Le reseau Wi-Fi se saisit sur le boitier.** Apres deux echecs de connexion, il ouvre son
+propre point d'acces et sert un formulaire, ce qui evite de reflasher l'appareil pour
+changer de reseau.
 
 Le boîtier ne détient aucun secret d'organisation et ne voit jamais un attribut personnel :
 il reçoit une décision, un libellé et des pixels.
 
-Ce qui **n'existe pas encore** : NFC, mesure de batterie réelle, boutons physiques, OTA,
-rotation de secret.
+Ce qui **n'existe pas encore** : NFC, mise a jour du firmware a distance, rotation de
+secret. Le niveau de batterie, lui, est mesure sur VSYS par le convertisseur
+analogique-numerique et remonte au portail.
 
 ## Structure
 
@@ -52,6 +59,8 @@ main.c            séquence de démarrage et boucle de polling
 screen/           driver SSD1683, framebuffer 1 bit/pixel, primitives de dessin
 assets/           images en dur (écrans 400x300, police 16x15, icône batterie)
 gpio/             initialisation SPI0 et broches de l'écran
+boutons/          les quatre boutons, echantillonnes dans la boucle principale
+power/            niveau de batterie, lu sur VSYS par l'ADC
 wifi/             pilote cyw43 + client HTTP/HTTPS écrit sur altcp/mbedTLS
 json/             frozen (tiers) + utilitaires
 storage/          persistance en flash, deux secteurs alternés avec CRC
@@ -92,6 +101,16 @@ TLS, le client MQTT, la flash et le panneau.
 | RST | 22 | actif bas |
 | BUSY | 20 | entrée, haut = occupé |
 
+Les quatre boutons, en entrée avec tirage au plus. L'ordre suit les touches sur la face
+avant, pas la numérotation des GPIO.
+
+| Touche | GPIO | Rôle dans le menu |
+|---|---|---|
+| B1 | 9 | monter |
+| B2 | 11 | descendre |
+| B3 | 10 | valider |
+| B4 | 8 | retour |
+
 ## Compiler et téléverser
 
 Prérequis : `arm-none-eabi-gcc` (avec le support C++, le projet déclare `C CXX ASM`),
@@ -115,8 +134,9 @@ cmake --build build
 ```
 
 Les identifiants Wi-Fi sont obligatoires : sans eux la compilation s'arrête sur un
-`#error`. Ils ne servent qu'au **premier** démarrage d'une carte vierge - ensuite, la
-configuration vient de la flash.
+`#error`. Ils ne servent qu'au **premier** démarrage d'une carte vierge. Ensuite la
+configuration vient de la flash, et un changement de réseau se fait par le portail captif
+du boîtier, sans recompiler.
 
 Téléversement, carte en mode BOOTSEL :
 
