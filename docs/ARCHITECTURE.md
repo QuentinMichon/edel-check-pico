@@ -540,13 +540,19 @@ NAV_PAGE_MENU ──1──▶ NAV_PAGE_PROFILE ──1──▶ post_token()
       └──x──▶ running = false
 ```
 
-**L'entrée se fait exclusivement au clavier, via le port série USB** :
-`getchar_timeout_us(0)` en polling toutes les 10 ms dans `main.c`. Les touches `1`-`4` et
-`x`. Les 4 boutons poussoirs du matériel n'ont **aucun code** - `init_gpio()` ne configure
-que les broches de l'écran.
+**L'entrée a deux sources, qui produisent le même caractère** et passent par
+`traiter_touche()` dans `navigation/nav.c` :
 
-Conséquence pratique : **toute la navigation se pilote depuis `picocom`**, en tapant des
-chiffres.
+- les **4 boutons poussoirs** (§3), échantillonnés par `boutons_scruter()` ;
+- le **clavier** par le port série USB, `getchar_timeout_us(0)`, touches `1`-`4` et `x`.
+
+`nav_poll_input()` lit le bouton d'abord : c'est l'entrée d'un boîtier posé sur un
+comptoir, le clavier n'est qu'une commodité tant qu'un câble USB est branché. Les deux
+sont interrogés dans la boucle principale, qui y passe toutes les 10 ms.
+
+`epd_set_attente_cb(boutons_scruter)` fait échantillonner les broches pendant que le pilote
+attend BUSY. Sans ce rappel, un appui pendant les 638 ms d'un rafraîchissement serait
+perdu.
 
 Pages `SETTINGS` (wifi, pairing) : squelettes vides, `printf("NA")`.
 
